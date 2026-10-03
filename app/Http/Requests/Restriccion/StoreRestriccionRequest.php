@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Http\Requests\Restriccion;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreRestriccionRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'motivo_id' => ['required', 'integer', 'exists:motivos,id'],
+            'desde' => ['required', 'date'],
+            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+        ];
+    }
+
+    // TODO Service: validar cardinalidad ||--o| (máximo una restricción vigente por paciente)
+    // Si ya existe una con hasta = null o hasta >= today, rechazar con 409.
+}
