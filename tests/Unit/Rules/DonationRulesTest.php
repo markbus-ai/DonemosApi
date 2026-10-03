@@ -141,6 +141,30 @@ class DonationRulesTest extends TestCase
         $this->assertGreaterThanOrEqual(2, count($result['warnings']));
     }
 
+    /**
+     * Res. 536/2026 - The rule key is codigo, not the display nombre.
+     *
+     * @test
+     */
+    public function test_rules_select_by_codigo_regardless_of_nombre(): void
+    {
+        $aptitud = $this->createAptitud();
+        $tipo = TipoDonacion::create(['nombre' => 'PLASMA RECOLECTADO', 'codigo' => 'PLASMA']);
+        $paciente = $this->createPaciente($aptitud);
+
+        // Recent plasma donation; the display name must not change the rule.
+        Donacion::create([
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipo->id,
+            'fecha' => now()->subDay()->toDateString(),
+        ]);
+
+        $result = (new DonationRules)->check($paciente, $tipo, now()->toDateString());
+
+        $this->assertFalse($result['allowed']);
+        $this->assertContains('WARNING_INTERVALO', array_column($result['warnings'], 'code'));
+    }
+
     // -----------------------------------------------------------------
     // Tests que quedan SKIPPED: dependen de datos clínicos no presentes
     // en el modelo actual (IgG/proteínas para plasma seriado, y regla

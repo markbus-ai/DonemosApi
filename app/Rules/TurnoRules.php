@@ -26,10 +26,9 @@ class TurnoRules
     ) {}
 
     /**
-     * @param Paciente|int $paciente
-     * @param string $fecha Y-m-d del turno solicitado
-     * @param string $hora H:i del turno solicitado (reservado para futura validación de solapamiento)
-     * @param int|null $tipoId Si se especifica, evalúa solo ese tipo; si null, evalúa PLASMA y PLAQUETAS y mergea warnings
+     * @param  string  $fecha  Y-m-d del turno solicitado
+     * @param  string  $hora  H:i del turno solicitado (reservado para futura validación de solapamiento)
+     * @param  int|null  $tipoId  Si se especifica, evalúa solo ese tipo; si null, evalúa PLASMA y PLAQUETAS y mergea warnings
      * @return array{allowed: bool, warnings: array<int, array{code: string, message: string}>}
      */
     public function check(Paciente|int $paciente, string $fecha, string $hora, ?int $tipoId = null): array
@@ -47,8 +46,8 @@ class TurnoRules
             $result = $this->donationRules->check($pacienteId, $tipoId, $fecha);
             $warnings = array_merge($warnings, $this->withoutDeferral($result['warnings'] ?? []));
         } else {
-            // Sin tipo explícito: evaluar conservadoramente con ambos tipos y mergear warnings
-            $tipos = TipoDonacion::whereIn('nombre', ['PLASMA', 'PLAQUETAS'])->get();
+            // Sin tipo explícito: evaluar conservadoramente por codigo y mergear warnings
+            $tipos = TipoDonacion::whereIn('codigo', ['PLASMA', 'PLAQUETAS'])->get();
             foreach ($tipos as $tipo) {
                 $result = $this->donationRules->check($pacienteId, $tipo->id, $fecha);
                 $warnings = array_merge($warnings, $this->withoutDeferral($result['warnings'] ?? []));

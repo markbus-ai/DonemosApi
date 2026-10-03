@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Aptitud;
+use App\Models\ComponenteDonacion;
 use App\Models\Donacion;
 use App\Models\Paciente;
 use App\Models\Rol;
@@ -36,6 +37,23 @@ class DonacionTest extends TestCase
         return TipoDonacion::create(['nombre' => $codigo, 'codigo' => $codigo]);
     }
 
+    /**
+     * @return array{SANGRE: TipoDonacion, PLASMA: TipoDonacion, PLAQUETAS: TipoDonacion}
+     */
+    private function createTiposCatalogo(): array
+    {
+        return [
+            'SANGRE' => $this->createTipo('SANGRE'),
+            'PLASMA' => $this->createTipo('PLASMA'),
+            'PLAQUETAS' => $this->createTipo('PLAQUETAS'),
+        ];
+    }
+
+    private function pacienteConAptitud(): Paciente
+    {
+        return $this->createPaciente($this->createAptitud());
+    }
+
     private function createPaciente(Aptitud $aptitud): Paciente
     {
         return Paciente::create([
@@ -67,6 +85,7 @@ class DonacionTest extends TestCase
         $payload = [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipo->id,
+            'componentes' => [$tipo->id],
             'fecha' => now()->toDateString(),
         ];
 
@@ -74,11 +93,13 @@ class DonacionTest extends TestCase
 
         $response->assertStatus(201);
         $response->assertJsonStructure(['id', 'paciente_id', 'tipo_id', 'fecha']);
+        $response->assertJsonCount(1, 'componentes');
 
         $this->assertDatabaseHas('donaciones', [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipo->id,
         ]);
+        $this->assertDatabaseCount('componentes_donacion', 1);
         $this->assertDatabaseCount('autorizaciones_extraordinarias', 0);
     }
 
@@ -110,6 +131,7 @@ class DonacionTest extends TestCase
         $payload = [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipo->id,
+            'componentes' => [$tipo->id],
             'fecha' => now()->toDateString(),
             // sin forzar
         ];
@@ -152,6 +174,7 @@ class DonacionTest extends TestCase
         $payload = [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipo->id,
+            'componentes' => [$tipo->id],
             'fecha' => now()->toDateString(),
             'forzar' => true,
         ];
@@ -173,5 +196,167 @@ class DonacionTest extends TestCase
             'paciente_id' => $paciente->id,
             'usuario_id' => $usuario->id,
         ]);
+    }
+
+    public function test_donacion_con_un_componente_sangre_persiste_una_fila(): void
+    {
+        $tipos = $this->createTiposCatalogo();
+        $paciente = $this->pacienteConAptitud();
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipos['SANGRE']->id,
+            'componentes' => [$tipos['SANGRE']->id],
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonCount(1, 'componentes');
+        $this->assertDatabaseCount('componentes_donacion', 1);
+        $this->assertDatabaseHas('componentes_donacion', ['tipo_id' => $tipos['SANGRE']->id]);
+    }
+
+    public function test_donacion_con_plasma_y_tres_plaquetas_persiste_cuatro_filas(): void
+    {
+        $tipos = $this->createTiposCatalogo();
+        $paciente = $this->pacienteConAptitud();
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipos['PLASMA']->id,
+            'componentes' => [
+                $tipos['PLASMA']->id,
+                $tipos['PLAQUETAS']->id,
+                $tipos['PLAQUETAS']->id,
+                $tipos['PLAQUETAS']->id,
+            ],
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonCount(4, 'componentes');
+        $this->assertDatabaseCount('componentes_donacion', 4);
+        $this->assertSame(3, ComponenteDonacion::where('tipo_id', $tipos['PLAQUETAS']->id)->count());
+    }
+
+    public function test_donacion_con_tres_plaquetas_persiste_tres_filas(): void
+    {
+        $tipos = $this->createTiposCatalogo();
+        $paciente = $this->pacienteConAptitud();
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipos['PLAQUETAS']->id,
+            'componentes' => [
+                $tipos['PLAQUETAS']->id,
+                $tipos['PLAQUETAS']->id,
+                $tipos['PLAQUETAS']->id,
+            ],
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonCount(3, 'componentes');
+        $this->assertDatabaseCount('componentes_donacion', 3);
+    }
+
+    public function test_cuatro_plaquetas_rechazado_422_sin_persistir(): void
+    {
+        $tipos = $this->createTiposCatalogo();
+        $paciente = $this->pacienteConAptitud();
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipos['PLAQUETAS']->id,
+            'componentes' => array_fill(0, 4, $tipos['PLAQUETAS']->id),
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseCount('donaciones', 0);
+        $this->assertDatabaseCount('componentes_donacion', 0);
+    }
+
+    public function test_dos_plasma_rechazado_422_sin_persistir(): void
+    {
+        $tipos = $this->createTiposCatalogo();
+        $paciente = $this->pacienteConAptitud();
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipos['PLASMA']->id,
+            'componentes' => [$tipos['PLASMA']->id, $tipos['PLASMA']->id],
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseCount('donaciones', 0);
+        $this->assertDatabaseCount('componentes_donacion', 0);
+    }
+
+    public function test_componentes_vacios_rechazado_422(): void
+    {
+        $tipos = $this->createTiposCatalogo();
+        $paciente = $this->pacienteConAptitud();
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipos['SANGRE']->id,
+            'componentes' => [],
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['componentes']);
+        $this->assertDatabaseCount('donaciones', 0);
+    }
+
+    public function test_componente_fuera_del_catalogo_rechazado_422(): void
+    {
+        $tipos = $this->createTiposCatalogo();
+        $paciente = $this->pacienteConAptitud();
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipos['SANGRE']->id,
+            'componentes' => [999999],
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['componentes.0']);
+        $this->assertDatabaseCount('donaciones', 0);
+    }
+
+    public function test_codigo_desconocido_rechazado_422_sin_persistir(): void
+    {
+        $tipos = $this->createTiposCatalogo();
+        $raro = TipoDonacion::create(['nombre' => 'raro', 'codigo' => 'DESCONOCIDO']);
+        $paciente = $this->pacienteConAptitud();
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipos['SANGRE']->id,
+            'componentes' => [$raro->id],
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseCount('donaciones', 0);
+        $this->assertDatabaseCount('componentes_donacion', 0);
+    }
+
+    public function test_donacion_legacy_sin_componentes_lee_coleccion_vacia(): void
+    {
+        $tipo = $this->createTipo('PLASMA');
+        $paciente = $this->pacienteConAptitud();
+
+        $donacion = Donacion::create([
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipo->id,
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $this->assertCount(0, $donacion->fresh()->componentes);
     }
 }

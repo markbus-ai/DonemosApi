@@ -31,8 +31,6 @@ use Carbon\Carbon;
 class DonationRules
 {
     /**
-     * @param Paciente|int $paciente
-     * @param TipoDonacion|int $tipo
      * @return array{allowed: bool, warnings: array<int, array{code: string, message: string}>}
      */
     public function check(Paciente|int $paciente, TipoDonacion|int $tipo, string $fecha): array
@@ -51,14 +49,14 @@ class DonationRules
             ->orderByDesc('fecha')
             ->get();
 
-        $nombreTipo = strtoupper($tipoModel->nombre);
+        $codigoTipo = strtoupper((string) $tipoModel->codigo);
 
         // -------------------------------------------------
         // PLAQUETAS — Reglas Resolución 536/2026
         // -------------------------------------------------
-        if ($nombreTipo === 'PLAQUETAS') {
+        if ($codigoTipo === 'PLAQUETAS') {
             // Regla 1: Intervalo mínimo < 48 horas desde última donación por aféresis
-            $ultimaPlaquetas = $historial->first(fn ($d) => strtoupper($d->tipoDonacion->nombre) === 'PLAQUETAS');
+            $ultimaPlaquetas = $historial->first(fn ($d) => strtoupper((string) $d->tipoDonacion->codigo) === 'PLAQUETAS');
             if ($ultimaPlaquetas) {
                 $fechaUltima = Carbon::parse($ultimaPlaquetas->fecha)->startOfDay();
                 $diffHoras = $fechaUltima->diffInHours($fechaSolicitada, false);
@@ -73,10 +71,11 @@ class DonationRules
 
             // Regla 2: Frecuencia semanal > 2 procedimientos en 7 días
             $plaquetasUltimos7Dias = $historial->filter(function ($d) use ($fechaSolicitada) {
-                if (strtoupper($d->tipoDonacion->nombre) !== 'PLAQUETAS') {
+                if (strtoupper((string) $d->tipoDonacion->codigo) !== 'PLAQUETAS') {
                     return false;
                 }
                 $f = Carbon::parse($d->fecha)->startOfDay();
+
                 return $f->greaterThanOrEqualTo($fechaSolicitada->copy()->subDays(7))
                     && $f->lessThan($fechaSolicitada);
             })->count();
@@ -91,10 +90,11 @@ class DonationRules
 
             // Regla 3: Límite anual > 24 en 12 meses
             $plaquetasUltimoAnio = $historial->filter(function ($d) use ($fechaSolicitada) {
-                if (strtoupper($d->tipoDonacion->nombre) !== 'PLAQUETAS') {
+                if (strtoupper((string) $d->tipoDonacion->codigo) !== 'PLAQUETAS') {
                     return false;
                 }
                 $f = Carbon::parse($d->fecha)->startOfDay();
+
                 return $f->greaterThanOrEqualTo($fechaSolicitada->copy()->subYear())
                     && $f->lessThanOrEqualTo($fechaSolicitada);
                 // Nota: lessThanOrEqualTo incluye donaciones del mismo día si existieran;
@@ -114,9 +114,9 @@ class DonationRules
         // -------------------------------------------------
         // PLASMA — Reglas Resolución 536/2026 (donante ocasional)
         // -------------------------------------------------
-        if ($nombreTipo === 'PLASMA') {
+        if ($codigoTipo === 'PLASMA') {
             // Regla 4: Intervalo general ocasional < 2 semanas (14 días)
-            $ultimaPlasma = $historial->first(fn ($d) => strtoupper($d->tipoDonacion->nombre) === 'PLASMA');
+            $ultimaPlasma = $historial->first(fn ($d) => strtoupper((string) $d->tipoDonacion->codigo) === 'PLASMA');
             if ($ultimaPlasma) {
                 $fechaUltima = Carbon::parse($ultimaPlasma->fecha)->startOfDay();
                 $diffDias = $fechaUltima->diffInDays($fechaSolicitada, false);
@@ -130,10 +130,11 @@ class DonationRules
 
             // Regla 5: Frecuencia > 24 donaciones en 12 meses para plasma ocasional
             $plasmaUltimoAnio = $historial->filter(function ($d) use ($fechaSolicitada) {
-                if (strtoupper($d->tipoDonacion->nombre) !== 'PLASMA') {
+                if (strtoupper((string) $d->tipoDonacion->codigo) !== 'PLASMA') {
                     return false;
                 }
                 $f = Carbon::parse($d->fecha)->startOfDay();
+
                 return $f->greaterThanOrEqualTo($fechaSolicitada->copy()->subYear())
                     && $f->lessThanOrEqualTo($fechaSolicitada);
             })->count();

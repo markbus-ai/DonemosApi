@@ -21,12 +21,12 @@ class DonacionController
     {
         $result = $this->donacionService->create($request->validated());
 
-        if (!$result['allowed'] && $result['donacion'] === null) {
+        if (! $result['allowed'] && $result['donacion'] === null) {
             return response()->json([
                 'warnings' => $result['warnings'],
             ], 409);
         }
 
-        return response()->json($result['donacion'], 201);
+        return response()->json($result['donacion']->load('componentes'), 201);
     }
 }

@@ -210,6 +210,37 @@ class TurnoRulesTest extends TestCase
         $this->assertFalse($result['allowed']);
     }
 
+    /**
+     * Without an explicit type, candidates are enumerated by codigo.
+     *
+     * @test
+     */
+    public function test_sin_tipo_evalua_candidatos_por_codigo(): void
+    {
+        $aptitud = $this->createAptitud();
+        $tipoPlaquetas = TipoDonacion::firstOrCreate(
+            ['codigo' => 'PLAQUETAS'],
+            ['nombre' => 'AFERESIS PLAQUETARIA']
+        );
+        TipoDonacion::firstOrCreate(['codigo' => 'SANGRE'], ['nombre' => 'SANGRE']);
+        $paciente = $this->createPaciente($aptitud);
+
+        $fechaTurno = Carbon::tomorrow()->toDateString();
+
+        Donacion::create([
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipoPlaquetas->id,
+            'fecha' => Carbon::parse($fechaTurno)->subDay()->toDateString(),
+        ]);
+
+        $rules = $this->makeTurnoRules();
+        $result = $rules->check($paciente, $fechaTurno, '10:00', null);
+
+        $codes = array_column($result['warnings'], 'code');
+        $this->assertContains('WARNING_INTERVALO', $codes);
+        $this->assertFalse($result['allowed']);
+    }
+
     // Nota: Para el caso "forzar permite continuar" no testear acá.
     // TurnoRules es puro: solo retorna warnings. El forzar lo maneja TurnoService
     // en su flujo two-step con transacción (409 sin forzar, 201 con forzar + autorización).

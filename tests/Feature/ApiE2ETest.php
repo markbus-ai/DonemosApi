@@ -473,6 +473,7 @@ class ApiE2ETest extends TestCase
         $payload = [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipo->id,
+            'componentes' => [$tipo->id],
             'fecha' => now()->toDateString(),
         ];
 
@@ -507,6 +508,7 @@ class ApiE2ETest extends TestCase
         $payloadSinForzar = [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipoPlaquetas->id,
+            'componentes' => [$tipoPlaquetas->id],
             'fecha' => $fechaSolicitada,
         ];
         $response409 = $this->postJson('/api/donaciones', $payloadSinForzar);
@@ -521,6 +523,7 @@ class ApiE2ETest extends TestCase
         $payloadConForzar = [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipoPlaquetas->id,
+            'componentes' => [$tipoPlaquetas->id],
             'fecha' => $fechaSolicitada,
             'forzar' => true,
             'motivo' => 'Forzado por normativa excedida',
@@ -637,6 +640,7 @@ class ApiE2ETest extends TestCase
         $response = $this->postJson('/api/donaciones', [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipo->id,
+            'componentes' => [$tipo->id],
             'fecha' => now()->toDateString(),
         ]);
 
@@ -655,6 +659,7 @@ class ApiE2ETest extends TestCase
         $response = $this->postJson('/api/donaciones', [
             'paciente_id' => $paciente->id,
             'tipo_id' => $tipo->id,
+            'componentes' => [$tipo->id],
             'fecha' => now()->toDateString(),
             'forzar' => true,
             'motivo' => 'Override clínico autorizado',
