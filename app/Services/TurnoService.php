@@ -117,6 +117,7 @@ class TurnoService
         }
 
         $map = [
+            'BLOQUEO_DIFERIMIENTO' => 'Diferimiento activo',
             'INTERVALO_MINIMO' => 'Incumplimiento de intervalo mínimo',
             'LIMITE_ANUAL' => 'Supera límite anual',
             'LIMITE_PERIODO' => 'Supera límite del período',

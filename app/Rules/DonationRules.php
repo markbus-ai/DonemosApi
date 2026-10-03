@@ -4,6 +4,7 @@ namespace App\Rules;
 
 use App\Models\Donacion;
 use App\Models\Paciente;
+use App\Models\Restriccion;
 use App\Models\TipoDonacion;
 use Carbon\Carbon;
 
@@ -36,13 +37,14 @@ class DonationRules
      */
     public function check(Paciente|int $paciente, TipoDonacion|int $tipo, string $fecha): array
     {
-        $warnings = [];
-
         $pacienteId = $paciente instanceof Paciente ? $paciente->id : $paciente;
         $tipoId = $tipo instanceof TipoDonacion ? $tipo->id : $tipo;
         $tipoModel = $tipo instanceof TipoDonacion ? $tipo : TipoDonacion::findOrFail($tipoId);
 
         $fechaSolicitada = Carbon::parse($fecha)->startOfDay();
+
+        // An active deferral blocks every donation type, regardless of history.
+        $warnings = $this->checkDeferral($pacienteId, $fechaSolicitada->toDateString());
 
         $historial = Donacion::where('paciente_id', $pacienteId)
             ->with('tipoDonacion')
@@ -173,5 +175,31 @@ class DonationRules
             'allowed' => empty($warnings),
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * Emit BLOQUEO_DIFERIMIENTO when the patient has an active deferral at $fecha.
+     *
+     * Public so TurnoRules can apply the block once, outside the donation-type loop.
+     *
+     * @return array<int, array{code: string, message: string}>
+     */
+    public function checkDeferral(Paciente|int $paciente, string $fecha): array
+    {
+        $pacienteId = $paciente instanceof Paciente ? $paciente->id : $paciente;
+        $dia = Carbon::parse($fecha)->startOfDay()->toDateString();
+
+        $tieneDiferimientoActivo = Restriccion::where('paciente_id', $pacienteId)
+            ->vigente($dia)
+            ->exists();
+
+        if (! $tieneDiferimientoActivo) {
+            return [];
+        }
+
+        return [[
+            'code' => 'BLOQUEO_DIFERIMIENTO',
+            'message' => 'Paciente con diferimiento activo: la donación no está habilitada (Res. 536/2026).',
+        ]];
     }
 }

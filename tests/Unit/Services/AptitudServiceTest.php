@@ -6,6 +6,7 @@ use App\Http\Requests\Aptitud\UpdateAptitudRequest;
 use App\Models\Aptitud;
 use App\Models\Motivo;
 use App\Models\Paciente;
+use App\Models\Restriccion;
 use App\Models\Rol;
 use App\Models\Usuario;
 use App\Services\AptitudService;
@@ -55,65 +56,154 @@ class AptitudServiceTest extends TestCase
         ]);
     }
 
+    private function createActiveDeferral(Paciente $paciente, Motivo $motivo, array $overrides = []): Restriccion
+    {
+        return $paciente->restricciones()->create(array_merge([
+            'motivo_id' => $motivo->id,
+            'desde' => '2026-01-01',
+            'hasta' => null,
+            'permanente' => true,
+        ], $overrides));
+    }
+
     // -----------------------------------------------------------------
-    // Invariante: APTO -> 0 observaciones, 0 restricciones
+    // Deferral history on return to APTO / APTO_OBSERVACION
     // -----------------------------------------------------------------
-    public function test_cambia_a_apto_desde_no_apto_elimina_restriccion(): void
+
+    public function test_apto_closes_active_deferral_without_deleting(): void
+    {
+        $this->seedAptitudes();
+        $paciente = $this->createPaciente('NO_APTO');
+        $motivo = $this->createMotivo();
+        $deferral = $this->createActiveDeferral($paciente, $motivo);
+
+        $updated = $this->service->update($paciente, ['tipo' => 'APTO']);
+
+        $this->assertSame('APTO', $updated->aptitud->tipo);
+        $this->assertSame(1, Restriccion::where('paciente_id', $paciente->id)->count());
+
+        $deferral->refresh();
+        $this->assertFalse($deferral->permanente);
+        $this->assertSame(now()->toDateString(), $deferral->hasta);
+        $this->assertNull($updated->fresh()->activeDeferral);
+    }
+
+    public function test_apto_observacion_also_closes_active_deferral_without_deleting(): void
+    {
+        $this->seedAptitudes();
+        $paciente = $this->createPaciente('NO_APTO');
+        $motivo = $this->createMotivo();
+        $deferral = $this->createActiveDeferral($paciente, $motivo);
+
+        $updated = $this->service->update($paciente, [
+            'tipo' => 'APTO_OBSERVACION',
+            'motivo_id' => $motivo->id,
+            'desde' => '2026-04-01',
+            'hasta' => null,
+        ]);
+
+        $this->assertSame('APTO_OBSERVACION', $updated->aptitud->tipo);
+        $this->assertSame(1, Restriccion::where('paciente_id', $paciente->id)->count());
+
+        $deferral->refresh();
+        $this->assertFalse($deferral->permanente);
+        $this->assertSame(now()->toDateString(), $deferral->hasta);
+
+        $this->assertSame(1, $updated->fresh()->observaciones()->count());
+    }
+
+    public function test_apto_does_not_delete_closed_history(): void
     {
         $this->seedAptitudes();
         $paciente = $this->createPaciente('NO_APTO');
         $motivo = $this->createMotivo();
 
-        // Precondición: paciente NO_APTO con 1 restricción (invariante)
-        $paciente->restriccion()->create([
-            'motivo_id' => $motivo->id,
-            'desde' => '2026-01-01',
-            'hasta' => null,
-        ]);
-        $this->assertEquals(1, $paciente->restriccion()->count());
-        $this->assertEquals(0, $paciente->observaciones()->count());
+        $this->createActiveDeferral($paciente, $motivo, ['desde' => '2025-01-01', 'hasta' => '2025-02-01', 'permanente' => false]);
+        $this->createActiveDeferral($paciente, $motivo, ['desde' => '2025-03-01', 'hasta' => '2025-04-01', 'permanente' => false]);
+        $this->createActiveDeferral($paciente, $motivo);
 
         $updated = $this->service->update($paciente, ['tipo' => 'APTO']);
 
-        $updated->load('aptitud');
-        $this->assertEquals('APTO', $updated->aptitud->tipo);
-        // Invariante APTO
-        $this->assertEquals(0, $updated->observaciones()->count());
-        $this->assertEquals(0, $updated->fresh()->observaciones()->count());
-        $this->assertNull($updated->fresh()->restriccion);
-        $this->assertDatabaseCount('restricciones', 0);
-        $this->assertDatabaseCount('observaciones', 0);
+        $this->assertSame(3, Restriccion::where('paciente_id', $paciente->id)->count());
+        $this->assertNull($updated->fresh()->activeDeferral);
     }
 
-    public function test_cambia_a_apto_elimina_observaciones_y_restriccion(): void
+    // -----------------------------------------------------------------
+    // NO_APTO transitions preserve history and keep a single active row
+    // -----------------------------------------------------------------
+
+    public function test_no_apto_closes_prior_active_and_inserts_new_row(): void
+    {
+        $this->seedAptitudes();
+        $paciente = $this->createPaciente('NO_APTO');
+        $motivo1 = $this->createMotivo();
+        $motivo2 = $this->createMotivo();
+        $prior = $this->createActiveDeferral($paciente, $motivo1);
+
+        $updated = $this->service->update($paciente, [
+            'tipo' => 'NO_APTO',
+            'motivo_id' => $motivo2->id,
+            'desde' => '2026-06-01',
+            'hasta' => null,
+        ]);
+
+        $this->assertSame('NO_APTO', $updated->aptitud->tipo);
+        $this->assertSame(2, Restriccion::where('paciente_id', $paciente->id)->count());
+
+        $prior->refresh();
+        $this->assertFalse($prior->permanente);
+        $this->assertSame('2026-06-01', $prior->hasta);
+
+        $active = $updated->fresh()->activeDeferral;
+        $this->assertNotNull($active);
+        $this->assertSame($motivo2->id, $active->motivo_id);
+        $this->assertTrue($active->permanente);
+        $this->assertNull($active->hasta);
+    }
+
+    public function test_no_apto_with_hasta_creates_temporary_row(): void
+    {
+        $this->seedAptitudes();
+        $paciente = $this->createPaciente('APTO');
+        $motivo = $this->createMotivo();
+
+        $updated = $this->service->update($paciente, [
+            'tipo' => 'NO_APTO',
+            'motivo_id' => $motivo->id,
+            'desde' => '2026-06-01',
+            'hasta' => '2026-12-01',
+        ]);
+
+        $active = $updated->fresh()->restricciones()->latest('desde')->first();
+        $this->assertFalse($active->permanente);
+        $this->assertSame('2026-12-01', $active->hasta);
+    }
+
+    public function test_no_apto_removes_observaciones_but_keeps_deferral_rows(): void
     {
         $this->seedAptitudes();
         $paciente = $this->createPaciente('APTO_OBSERVACION');
         $motivo = $this->createMotivo();
 
-        $paciente->observaciones()->create([
-            'motivo_id' => $motivo->id,
-            'desde' => '2026-01-10',
-            'hasta' => '2026-02-10',
-        ]);
-        $paciente->observaciones()->create([
-            'motivo_id' => $motivo->id,
-            'desde' => '2026-03-01',
-            'hasta' => null,
-        ]);
-        $this->assertEquals(2, $paciente->observaciones()->count());
+        $paciente->observaciones()->create(['motivo_id' => $motivo->id, 'desde' => '2026-01-01', 'hasta' => null]);
+        $paciente->observaciones()->create(['motivo_id' => $motivo->id, 'desde' => '2026-02-01', 'hasta' => null]);
 
-        $updated = $this->service->update($paciente, ['tipo' => 'APTO']);
+        $updated = $this->service->update($paciente, [
+            'tipo' => 'NO_APTO',
+            'motivo_id' => $motivo->id,
+            'desde' => '2026-06-01',
+            'hasta' => '2026-12-01',
+        ]);
 
-        $this->assertEquals('APTO', $updated->aptitud->tipo);
-        $this->assertEquals(0, $updated->fresh()->observaciones()->count());
-        $this->assertNull($updated->fresh()->restriccion);
+        $this->assertSame(0, $updated->fresh()->observaciones()->count());
+        $this->assertSame(1, Restriccion::where('paciente_id', $paciente->id)->count());
     }
 
     // -----------------------------------------------------------------
-    // Invariante: APTO_OBSERVACION -> >=1 observación, 0 restricciones
+    // APTO_OBSERVACION observacion behaviour (unchanged)
     // -----------------------------------------------------------------
-    public function test_cambia_a_apto_observacion_con_datos_crea_observacion(): void
+
+    public function test_apto_observacion_con_datos_crea_observacion(): void
     {
         $this->seedAptitudes();
         $paciente = $this->createPaciente('APTO');
@@ -126,12 +216,8 @@ class AptitudServiceTest extends TestCase
             'hasta' => '2026-03-01',
         ]);
 
-        $updated->load('aptitud');
-        $this->assertEquals('APTO_OBSERVACION', $updated->aptitud->tipo);
-        $this->assertEquals(1, $updated->observaciones()->count());
-        $this->assertEquals(0, $updated->restriccion()->count());
-        $this->assertDatabaseCount('observaciones', 1);
-        $this->assertDatabaseCount('restricciones', 0);
+        $this->assertSame('APTO_OBSERVACION', $updated->aptitud->tipo);
+        $this->assertSame(1, $updated->observaciones()->count());
         $this->assertDatabaseHas('observaciones', [
             'paciente_id' => $paciente->id,
             'motivo_id' => $motivo->id,
@@ -140,32 +226,7 @@ class AptitudServiceTest extends TestCase
         ]);
     }
 
-    public function test_cambia_a_apto_observacion_elimina_restriccion_previa(): void
-    {
-        $this->seedAptitudes();
-        $paciente = $this->createPaciente('NO_APTO');
-        $motivo = $this->createMotivo();
-
-        $paciente->restriccion()->create([
-            'motivo_id' => $motivo->id,
-            'desde' => '2026-01-01',
-        ]);
-        $this->assertNotNull($paciente->fresh()->restriccion);
-
-        $updated = $this->service->update($paciente, [
-            'tipo' => 'APTO_OBSERVACION',
-            'motivo_id' => $motivo->id,
-            'desde' => '2026-04-01',
-            'hasta' => null,
-        ]);
-
-        $this->assertEquals('APTO_OBSERVACION', $updated->aptitud->tipo);
-        $this->assertNull($updated->fresh()->restriccion);
-        $this->assertEquals(1, $updated->fresh()->observaciones()->count());
-        $this->assertDatabaseCount('restricciones', 0);
-    }
-
-    public function test_cambia_a_apto_observacion_permite_hasta_null(): void
+    public function test_apto_observacion_permite_hasta_null(): void
     {
         $this->seedAptitudes();
         $paciente = $this->createPaciente('APTO');
@@ -178,89 +239,23 @@ class AptitudServiceTest extends TestCase
             'hasta' => null,
         ]);
 
-        $this->assertEquals('APTO_OBSERVACION', $updated->aptitud->tipo);
-        $obs = $updated->observaciones()->first();
-        $this->assertNull($obs->hasta);
+        $this->assertSame('APTO_OBSERVACION', $updated->aptitud->tipo);
+        $this->assertNull($updated->observaciones()->first()->hasta);
     }
 
     // -----------------------------------------------------------------
-    // Invariante: NO_APTO -> 0 observaciones, 1 restricción
+    // Validación (unchanged behaviour)
     // -----------------------------------------------------------------
-    public function test_cambia_a_no_apto_con_datos_crea_restriccion_elimina_observaciones(): void
-    {
-        $this->seedAptitudes();
-        $paciente = $this->createPaciente('APTO_OBSERVACION');
-        $motivo = $this->createMotivo();
 
-        // Precondición con 2 observaciones
-        $paciente->observaciones()->create(['motivo_id' => $motivo->id, 'desde' => '2026-01-01', 'hasta' => null]);
-        $paciente->observaciones()->create(['motivo_id' => $motivo->id, 'desde' => '2026-02-01', 'hasta' => null]);
-        $this->assertEquals(2, $paciente->observaciones()->count());
-
-        $updated = $this->service->update($paciente, [
-            'tipo' => 'NO_APTO',
-            'motivo_id' => $motivo->id,
-            'desde' => '2026-06-01',
-            'hasta' => '2026-12-01',
-        ]);
-
-        $updated->load('aptitud');
-        $this->assertEquals('NO_APTO', $updated->aptitud->tipo);
-        $this->assertEquals(0, $updated->fresh()->observaciones()->count());
-        $this->assertNotNull($updated->fresh()->restriccion);
-        $this->assertEquals(1, $updated->fresh()->restriccion()->count());
-        $this->assertDatabaseCount('observaciones', 0);
-        $this->assertDatabaseCount('restricciones', 1);
-        $this->assertDatabaseHas('restricciones', [
-            'paciente_id' => $paciente->id,
-            'motivo_id' => $motivo->id,
-            'desde' => '2026-06-01',
-            'hasta' => '2026-12-01',
-        ]);
-    }
-
-    public function test_cambia_a_no_apto_reemplaza_restriccion_existente(): void
-    {
-        $this->seedAptitudes();
-        $paciente = $this->createPaciente('NO_APTO');
-        $motivo1 = $this->createMotivo();
-        $motivo2 = Motivo::create(['nombre' => fake()->unique()->word()]);
-
-        $paciente->restriccion()->create([
-            'motivo_id' => $motivo1->id,
-            'desde' => '2026-01-01',
-            'hasta' => '2026-02-01',
-        ]);
-        $oldId = $paciente->fresh()->restriccion->id;
-
-        $updated = $this->service->update($paciente, [
-            'tipo' => 'NO_APTO',
-            'motivo_id' => $motivo2->id,
-            'desde' => '2026-03-01',
-            'hasta' => null,
-        ]);
-
-        $this->assertEquals('NO_APTO', $updated->aptitud->tipo);
-        $this->assertDatabaseCount('restricciones', 1);
-        $new = $updated->fresh()->restriccion;
-        $this->assertNotEquals($oldId, $new->id);
-        $this->assertEquals($motivo2->id, $new->motivo_id);
-    }
-
-    // -----------------------------------------------------------------
-    // Validación: APTO_OBSERVACION sin motivo_id debe fallar (422)
-    // -----------------------------------------------------------------
     public function test_apto_observacion_sin_motivo_falla_validacion(): void
     {
         $request = new UpdateAptitudRequest();
-        // Simular input tipo APTO_OBSERVACION sin motivo_id
         $request->merge([
             'tipo' => 'APTO_OBSERVACION',
             'desde' => '2026-01-01',
         ]);
 
-        $rules = $request->rules();
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make($request->all(), $request->rules());
 
         $this->assertTrue($validator->fails());
         $this->assertArrayHasKey('motivo_id', $validator->errors()->toArray());
@@ -268,13 +263,11 @@ class AptitudServiceTest extends TestCase
 
     public function test_no_apto_sin_desde_falla_validacion(): void
     {
-        // Necesitamos un motivo existente para que exists pase; creamos uno temporal
         $this->seedAptitudes();
-        $m = Motivo::create(['nombre' => 'tmp_motivo_val']);
+        $m = $this->createMotivo();
         $data = [
             'tipo' => 'NO_APTO',
             'motivo_id' => $m->id,
-            // falta desde
         ];
 
         $req = new UpdateAptitudRequest();
@@ -303,7 +296,7 @@ class AptitudServiceTest extends TestCase
             'tipo' => 'APTO_OBSERVACION',
             'motivo_id' => $motivo->id,
             'desde' => '2026-03-10',
-            'hasta' => '2026-03-01', // anterior a desde
+            'hasta' => '2026-03-01',
         ]);
         $validator = Validator::make($request->all(), $request->rules());
         $this->assertTrue($validator->fails());
@@ -323,9 +316,8 @@ class AptitudServiceTest extends TestCase
         ]);
         Sanctum::actingAs($staff, ['*'], 'staff');
 
-        $response = $this->patchJson('/api/pacientes/' . $paciente->dni . '/aptitud', [
+        $response = $this->patchJson('/api/pacientes/'.$paciente->dni.'/aptitud', [
             'tipo' => 'APTO_OBSERVACION',
-            // sin motivo_id ni desde
         ]);
 
         $response->assertStatus(422);
@@ -335,40 +327,35 @@ class AptitudServiceTest extends TestCase
     // -----------------------------------------------------------------
     // Transacción: si falla creación, aptitud no cambia (rollback)
     // -----------------------------------------------------------------
+
     public function test_transaccion_rollback_si_falla_observacion_aptitud_no_cambia(): void
     {
         $this->seedAptitudes();
         $paciente = $this->createPaciente('APTO');
         $aptitudOriginalId = $paciente->aptitud_id;
 
-        // Usar motivo_id inexistente para forzar violación de FK dentro de la transacción
-        $invalidMotivoId = 999999;
-
         try {
             $this->service->update($paciente, [
                 'tipo' => 'APTO_OBSERVACION',
-                'motivo_id' => $invalidMotivoId,
+                'motivo_id' => 999999,
                 'desde' => '2026-01-01',
                 'hasta' => null,
             ]);
             $this->fail('Se esperaba excepción por FK inválida');
         } catch (\Throwable $e) {
-            // Esperado: QueryException por FK o similar
             $this->assertTrue(true);
         }
 
         $paciente->refresh();
-        $this->assertEquals($aptitudOriginalId, $paciente->aptitud_id);
-        $this->assertEquals('APTO', $paciente->aptitud->tipo);
-        $this->assertEquals(0, $paciente->observaciones()->count());
-        $this->assertDatabaseCount('observaciones', 0);
+        $this->assertSame($aptitudOriginalId, $paciente->aptitud_id);
+        $this->assertSame('APTO', $paciente->aptitud->tipo);
+        $this->assertSame(0, $paciente->observaciones()->count());
     }
 
     public function test_transaccion_rollback_si_falla_restriccion_aptitud_no_cambia(): void
     {
         $this->seedAptitudes();
         $paciente = $this->createPaciente('APTO');
-        // Precrear una observación para verificar que no se borra si hay rollback
         $motivo = $this->createMotivo();
         $paciente->observaciones()->create([
             'motivo_id' => $motivo->id,
@@ -381,7 +368,7 @@ class AptitudServiceTest extends TestCase
         try {
             $this->service->update($paciente, [
                 'tipo' => 'NO_APTO',
-                'motivo_id' => 888888, // inexistente
+                'motivo_id' => 888888,
                 'desde' => '2026-02-01',
             ]);
             $this->fail('Se esperaba excepción por FK inválida');
@@ -390,9 +377,9 @@ class AptitudServiceTest extends TestCase
         }
 
         $paciente->refresh();
-        $this->assertEquals($aptitudOriginalId, $paciente->aptitud_id);
-        $this->assertEquals($obsCountBefore, $paciente->observaciones()->count());
-        $this->assertDatabaseCount('restricciones', 0);
+        $this->assertSame($aptitudOriginalId, $paciente->aptitud_id);
+        $this->assertSame($obsCountBefore, $paciente->observaciones()->count());
+        $this->assertSame(0, Restriccion::where('paciente_id', $paciente->id)->count());
     }
 
     public function test_aptitud_inexistente_lanza_excepcion(): void

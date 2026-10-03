@@ -36,20 +36,22 @@ class TurnoRules
     {
         $pacienteId = $paciente instanceof Paciente ? $paciente->id : $paciente;
 
-        $warnings = [];
+        // Active deferral blocks turno booking regardless of the tipo catalog.
+        // Applied once here; the same code is stripped from per-tipo results below.
+        $warnings = $this->donationRules->checkDeferral($pacienteId, $fecha);
 
         // -------------------------------------------------
         // 1) Validación de intervalos vía DonationRules (donaciones previas reales)
         // -------------------------------------------------
         if ($tipoId !== null) {
             $result = $this->donationRules->check($pacienteId, $tipoId, $fecha);
-            $warnings = array_merge($warnings, $result['warnings'] ?? []);
+            $warnings = array_merge($warnings, $this->withoutDeferral($result['warnings'] ?? []));
         } else {
             // Sin tipo explícito: evaluar conservadoramente con ambos tipos y mergear warnings
             $tipos = TipoDonacion::whereIn('nombre', ['PLASMA', 'PLAQUETAS'])->get();
             foreach ($tipos as $tipo) {
                 $result = $this->donationRules->check($pacienteId, $tipo->id, $fecha);
-                $warnings = array_merge($warnings, $result['warnings'] ?? []);
+                $warnings = array_merge($warnings, $this->withoutDeferral($result['warnings'] ?? []));
             }
         }
 
@@ -79,5 +81,20 @@ class TurnoRules
             'allowed' => empty($warnings),
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * Drop the deferral code emitted by DonationRules::check so it is not
+     * duplicated; TurnoRules already emitted it once for the whole turno.
+     *
+     * @param  array<int, array{code: string, message: string}>  $warnings
+     * @return array<int, array{code: string, message: string}>
+     */
+    private function withoutDeferral(array $warnings): array
+    {
+        return array_values(array_filter(
+            $warnings,
+            fn (array $warning) => ($warning['code'] ?? null) !== 'BLOQUEO_DIFERIMIENTO'
+        ));
     }
 }
