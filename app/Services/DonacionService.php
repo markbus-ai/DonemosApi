@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Autoexclusion;
 use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
+use App\Models\HabilitacionPlaqueta;
 use App\Models\Paciente;
 use App\Models\Sede;
 use App\Models\TipoDonacion;
@@ -51,7 +52,11 @@ class DonacionService
         }
 
         $result = $this->donationRules->check($paciente, $tipo, $fecha);
-        $warnings = array_merge($result['warnings'], $clinical['warnings']);
+        $warnings = array_merge(
+            $result['warnings'],
+            $clinical['warnings'],
+            $this->plateletWarnings($paciente, $tipo, $fecha),
+        );
         $allowed = $warnings === [];
 
         // Si hay warnings y no se fuerza, no crear nada. Devolver warnings para 409.
@@ -229,6 +234,33 @@ class DonacionService
         return $rows;
     }
 
+    /**
+     * Platelet product (`codigo=PLAQUETAS`) requires an active enable. This is
+     * an overridable warning (409) that merges into the donation warning set so
+     * `forzar` works unchanged. Non-platelet types are never gated.
+     *
+     * @return array<int, array{code: string, message: string}>
+     */
+    private function plateletWarnings(Paciente $paciente, TipoDonacion $tipo, string $fecha): array
+    {
+        if (strtoupper((string) $tipo->codigo) !== 'PLAQUETAS') {
+            return [];
+        }
+
+        $habilitada = HabilitacionPlaqueta::where('paciente_id', $paciente->id)
+            ->vigente($fecha)
+            ->exists();
+
+        if ($habilitada) {
+            return [];
+        }
+
+        return [[
+            'code' => 'PLAQUETAS_NO_HABILITADAS',
+            'message' => 'PLAQUETAS: el donante no tiene habilitación vigente para aféresis de plaquetas.',
+        ]];
+    }
+
     private function buildMotivo(array $warnings): string
     {
         // Genera motivo a partir del code, no del message que se muestra al usuario
@@ -245,6 +277,7 @@ class DonacionService
             'LIMITE_PERIODO' => 'Supera límite del período',
             'HEMOGLOBINA_BAJA' => 'Hemoglobina baja',
             'PESO_BAJO' => 'Peso bajo',
+            'PLAQUETAS_NO_HABILITADAS' => 'Plaquetas no habilitadas',
         ];
 
         $motivos = array_map(fn ($c) => $map[$c] ?? $c, $codes);

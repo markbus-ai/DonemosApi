@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Aptitud;
 use App\Models\ComponenteDonacion;
 use App\Models\Donacion;
+use App\Models\HabilitacionPlaqueta;
 use App\Models\Paciente;
 use App\Models\Rol;
 use App\Models\TipoDonacion;
@@ -243,6 +244,14 @@ class DonacionTest extends TestCase
     {
         $tipos = $this->createTiposCatalogo();
         $paciente = $this->pacienteConAptitud();
+
+        // PLAQUETAS donations require an active platelet enable (slice 4 gate);
+        // this test only exercises the component row count.
+        HabilitacionPlaqueta::create([
+            'paciente_id' => $paciente->id,
+            'desde' => now()->subDay()->toDateString(),
+            'hasta' => now()->addMonths(6)->toDateString(),
+        ]);
 
         $response = $this->postJson('/api/donaciones', [
             'paciente_id' => $paciente->id,

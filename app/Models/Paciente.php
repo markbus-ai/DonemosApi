@@ -51,6 +51,14 @@ class Paciente extends Model
             ->latest('desde');
     }
 
+    /**
+     * Platelet-enable history; rows are closed, never deleted.
+     */
+    public function habilitacionesPlaquetas(): HasMany
+    {
+        return $this->hasMany(HabilitacionPlaqueta::class, 'paciente_id');
+    }
+
     public function donaciones(): HasMany
     {
         return $this->hasMany(Donacion::class, 'paciente_id');
