@@ -27,11 +27,37 @@ class Donacion extends Model
         'dificultad',
         'operador_id',
         'doble_etiqueta',
+        'hemoglobina',
+        'hematocrito',
+        'plaquetas',
+        'presion_sistolica',
+        'presion_diastolica',
+        'frecuencia_cardiaca',
+        'peso_donante',
     ];
 
     protected $casts = [
         'doble_etiqueta' => 'boolean',
+        'hemoglobina' => 'decimal:2',
+        'hematocrito' => 'decimal:2',
+        'plaquetas' => 'integer',
+        'presion_sistolica' => 'integer',
+        'presion_diastolica' => 'integer',
+        'frecuencia_cardiaca' => 'integer',
+        'peso_donante' => 'decimal:2',
     ];
+
+    protected $appends = ['presion_arterial'];
+
+    // Serialized pressure string; null unless both mmHg values are present.
+    public function getPresionArterialAttribute(): ?string
+    {
+        if ($this->presion_sistolica === null || $this->presion_diastolica === null) {
+            return null;
+        }
+
+        return $this->presion_sistolica.'/'.$this->presion_diastolica;
+    }
 
     public function paciente(): BelongsTo
     {

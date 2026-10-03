@@ -13,8 +13,18 @@ class TipoDonacionSeeder extends Seeder
     public function run(): void
     {
         // codigo is the stable product key; nombre is display-only.
-        foreach (['SANGRE', 'PLASMA', 'PLAQUETAS'] as $codigo) {
-            TipoDonacion::updateOrCreate(['codigo' => $codigo], ['nombre' => $codigo]);
+        // PLASMA and PLAQUETAS are apheresis by product assumption (spec S5).
+        $catalogo = [
+            'SANGRE' => false,
+            'PLASMA' => true,
+            'PLAQUETAS' => true,
+        ];
+
+        foreach ($catalogo as $codigo => $esAferesis) {
+            TipoDonacion::updateOrCreate(
+                ['codigo' => $codigo],
+                ['nombre' => $codigo, 'es_aferesis' => $esAferesis],
+            );
         }
     }
 }
