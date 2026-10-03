@@ -21,7 +21,7 @@ namespace App\Rules;
 final class ClinicalSignRules
 {
     /** Every sign column recognised on `donaciones`. */
-    private const SIGNS = [
+    public const SIGNS = [
         'hemoglobina',
         'hematocrito',
         'plaquetas',

@@ -60,6 +60,16 @@ class StoreDonacionRequest extends FormRequest
             'brazo' => ['sometimes', 'nullable', Rule::in(self::BRAZOS)],
             'dificultad' => ['sometimes', 'nullable', 'string', 'max:255'],
             'doble_etiqueta' => ['sometimes', 'boolean'],
+            // Clinical signs: shape/numeric only. Gating and integrity beyond
+            // the shape (apheresis precondition, sourced warnings) live in
+            // ClinicalSignRules and DonacionService.
+            'hemoglobina' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'hematocrito' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'plaquetas' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'presion_sistolica' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'presion_diastolica' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'frecuencia_cardiaca' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'peso_donante' => ['sometimes', 'nullable', 'numeric', 'min:0'],
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Donacion;
 use App\Models\Paciente;
 use App\Models\Sede;
 use App\Models\TipoDonacion;
+use App\Rules\ClinicalSignRules;
 use App\Rules\ComponentRules;
 use App\Rules\DonationRules;
 use App\Support\ForcedAuthor;
@@ -20,7 +21,8 @@ class DonacionService
 {
     public function __construct(
         private DonationRules $donationRules,
-        private ComponentRules $componentRules
+        private ComponentRules $componentRules,
+        private ClinicalSignRules $clinicalSignRules
     ) {}
 
     /**
@@ -36,9 +38,19 @@ class DonacionService
         // preempt domain warnings, so validate before DonationRules runs.
         $componentes = $this->assertComponentes($data);
 
+        // Clinical integrity errors and the apheresis prior-hemogram gate are
+        // 422 and MUST preempt the override branch: `forzar` overrides sourced
+        // warnings only, never these errors.
+        $signs = $this->extractSigns($data);
+        $clinical = $this->clinicalSignRules->check($signs, (bool) $tipo->es_aferesis);
+
+        if ($clinical['errors'] !== []) {
+            throw ValidationException::withMessages(['signos_clinicos' => $clinical['errors']]);
+        }
+
         $result = $this->donationRules->check($paciente, $tipo, $fecha);
-        $warnings = $result['warnings'];
-        $allowed = $result['allowed'];
+        $warnings = array_merge($result['warnings'], $clinical['warnings']);
+        $allowed = $warnings === [];
 
         // Si hay warnings y no se fuerza, no crear nada. Devolver warnings para 409.
         if (! $allowed && empty($data['forzar'])) {
@@ -50,7 +62,7 @@ class DonacionService
         }
 
         // Si hay warnings y se fuerza, crear autorización + donación en transacción
-        return DB::transaction(function () use ($paciente, $tipo, $fecha, $warnings, $allowed, $data, $componentes) {
+        return DB::transaction(function () use ($paciente, $tipo, $fecha, $warnings, $allowed, $data, $componentes, $signs) {
             if (! $allowed && ! empty($data['forzar'])) {
                 // Motivo autogenerado a partir del code, no viene del cliente
                 $motivo = $this->buildMotivo($warnings);
@@ -84,6 +96,8 @@ class DonacionService
                 // Attribution is never client-supplied.
                 'operador_id' => auth('staff')->id(),
                 'doble_etiqueta' => (bool) ($data['doble_etiqueta'] ?? false),
+                // Clinical signs captured with the donation (nullable).
+                ...$this->signColumns($signs),
             ]);
 
             if ($componentes !== null) {
@@ -191,10 +205,50 @@ class DonacionService
             'INTERVALO_MINIMO' => 'Incumplimiento de intervalo mínimo',
             'LIMITE_ANUAL' => 'Supera límite anual',
             'LIMITE_PERIODO' => 'Supera límite del período',
+            'HEMOGLOBINA_BAJA' => 'Hemoglobina baja',
+            'PESO_BAJO' => 'Peso bajo',
         ];
 
         $motivos = array_map(fn ($c) => $map[$c] ?? $c, $codes);
 
         return implode(' + ', $motivos);
+    }
+
+    /**
+     * Pull only the clinical-sign keys out of the payload.
+     *
+     * Missing keys, null and empty string all mean "not captured"; the pure
+     * rules object interprets absence itself.
+     *
+     * @return array<string, mixed>
+     */
+    private function extractSigns(array $data): array
+    {
+        $signs = [];
+
+        foreach (ClinicalSignRules::SIGNS as $sign) {
+            if (array_key_exists($sign, $data)) {
+                $signs[$sign] = $data[$sign];
+            }
+        }
+
+        return $signs;
+    }
+
+    /**
+     * Normalise captured signs into insertable columns, defaulting each to null.
+     *
+     * @param  array<string, mixed>  $signs
+     * @return array<string, mixed>
+     */
+    private function signColumns(array $signs): array
+    {
+        $columns = [];
+
+        foreach (ClinicalSignRules::SIGNS as $sign) {
+            $columns[$sign] = $signs[$sign] ?? null;
+        }
+
+        return $columns;
     }
 }
