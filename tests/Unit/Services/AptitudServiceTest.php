@@ -6,10 +6,14 @@ use App\Http\Requests\Aptitud\UpdateAptitudRequest;
 use App\Models\Aptitud;
 use App\Models\Motivo;
 use App\Models\Paciente;
+use App\Models\Rol;
+use App\Models\Usuario;
 use App\Services\AptitudService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AptitudServiceTest extends TestCase
@@ -310,6 +314,14 @@ class AptitudServiceTest extends TestCase
     {
         $this->seedAptitudes();
         $paciente = $this->createPaciente('APTO');
+
+        $rol = Rol::firstOrCreate(['nombre' => 'ADMIN']);
+        $staff = Usuario::create([
+            'username' => fake()->unique()->userName(),
+            'password_hash' => Hash::make('1234'),
+            'rol_id' => $rol->id,
+        ]);
+        Sanctum::actingAs($staff, ['*'], 'staff');
 
         $response = $this->patchJson('/api/pacientes/' . $paciente->dni . '/aptitud', [
             'tipo' => 'APTO_OBSERVACION',

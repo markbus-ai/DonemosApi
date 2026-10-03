@@ -10,11 +10,22 @@ use App\Models\Rol;
 use App\Models\TipoDonacion;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class DonacionTest extends TestCase
 {
     use RefreshDatabase;
+
+    private Usuario $staff;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->staff = $this->createUsuario();
+        Sanctum::actingAs($this->staff, ['*'], 'staff');
+    }
 
     private function createAptitud(string $tipo = 'APTO'): Aptitud
     {
@@ -42,7 +53,7 @@ class DonacionTest extends TestCase
         $rol = Rol::create(['nombre' => 'ADMIN']);
         return Usuario::create([
             'username' => fake()->unique()->userName(),
-            'password_hash' => 'hash_test',
+            'password_hash' => Hash::make('1234'),
             'rol_id' => $rol->id,
         ]);
     }
@@ -52,7 +63,6 @@ class DonacionTest extends TestCase
         $aptitud = $this->createAptitud();
         $tipo = $this->createTipo('PLASMA');
         $paciente = $this->createPaciente($aptitud);
-        $this->createUsuario(); // para que DonacionService tenga fallback usuario_id si fuerza (no usado aquí pero asegura DB)
 
         $payload = [
             'paciente_id' => $paciente->id,

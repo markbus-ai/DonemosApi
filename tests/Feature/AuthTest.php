@@ -204,4 +204,38 @@ class AuthTest extends TestCase
 
         $this->withToken($token)->getJson('/api/auth/me')->assertStatus(401);
     }
+
+    // -----------------------------------------------------------------
+    // Unit 3: Domain router protection
+    // -----------------------------------------------------------------
+
+    public function test_all_domain_routers_require_authentication_and_mutate_nothing(): void
+    {
+        $endpoints = [
+            ['GET', '/api/pacientes/12345678'],
+            ['POST', '/api/pacientes'],
+            ['PATCH', '/api/pacientes/12345678'],
+            ['GET', '/api/turnos'],
+            ['POST', '/api/turnos'],
+            ['PATCH', '/api/turnos/1'],
+            ['GET', '/api/donaciones'],
+            ['POST', '/api/donaciones'],
+            ['PATCH', '/api/pacientes/12345678/aptitud'],
+            ['POST', '/api/pacientes/12345678/observacion'],
+            ['DELETE', '/api/pacientes/12345678/observacion'],
+            ['POST', '/api/pacientes/12345678/restriccion'],
+            ['DELETE', '/api/pacientes/12345678/restriccion'],
+        ];
+
+        foreach ($endpoints as [$method, $uri]) {
+            $this->json($method, $uri, [])->assertStatus(401);
+        }
+
+        $this->assertDatabaseCount('pacientes', 0);
+        $this->assertDatabaseCount('turnos', 0);
+        $this->assertDatabaseCount('donaciones', 0);
+        $this->assertDatabaseCount('observaciones', 0);
+        $this->assertDatabaseCount('restricciones', 0);
+        $this->assertDatabaseCount('autorizaciones_extraordinarias', 0);
+    }
 }

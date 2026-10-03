@@ -12,17 +12,22 @@ use App\Models\TipoDonacion;
 use App\Models\Usuario;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class ApiE2ETest extends TestCase
 {
     use RefreshDatabase;
 
+    private Usuario $staff;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->seedAptitudes();
         $this->seedTipos();
+        $this->staff = $this->createUsuario();
+        Sanctum::actingAs($this->staff, ['*'], 'staff');
     }
 
     // -----------------------------------------------------------------
@@ -381,7 +386,6 @@ class ApiE2ETest extends TestCase
     {
         $paciente = $this->createPacienteModel();
         $tipoPlaquetas = $this->getTipo('PLAQUETAS');
-        $usuario = $this->createUsuario();
         $fechaTurno = Carbon::tomorrow()->toDateString();
         $fechaDonacion = Carbon::parse($fechaTurno)->subDay()->toDateString();
 
@@ -397,7 +401,6 @@ class ApiE2ETest extends TestCase
             'hora' => '10:00',
             'tipo_id' => $tipoPlaquetas->id,
             'forzar' => true,
-            'usuario_id' => $usuario->id,
             'motivo' => 'Autorización extraordinaria por urgencia',
         ];
 
@@ -414,7 +417,7 @@ class ApiE2ETest extends TestCase
         );
         $this->assertDatabaseHas('autorizaciones_extraordinarias', [
             'paciente_id' => $paciente->id,
-            'usuario_id' => $usuario->id,
+            'usuario_id' => $this->staff->id,
         ]);
         $this->assertDatabaseCount('autorizaciones_extraordinarias', 1);
     }
@@ -426,7 +429,6 @@ class ApiE2ETest extends TestCase
     {
         $paciente = $this->createPacienteModel();
         $tipo = $this->getTipo('PLASMA');
-        $this->createUsuario(); // fallback para autorizaciones si fuerza
 
         $payload = [
             'paciente_id' => $paciente->id,
@@ -451,7 +453,6 @@ class ApiE2ETest extends TestCase
     {
         $paciente = $this->createPacienteModel();
         $tipoPlaquetas = $this->getTipo('PLAQUETAS');
-        $usuario = $this->createUsuario();
         $fechaDonacionPrevia = now()->subDay()->toDateString();
         $fechaSolicitada = now()->toDateString();
 
@@ -482,7 +483,6 @@ class ApiE2ETest extends TestCase
             'tipo_id' => $tipoPlaquetas->id,
             'fecha' => $fechaSolicitada,
             'forzar' => true,
-            'usuario_id' => $usuario->id,
             'motivo' => 'Forzado por normativa excedida',
         ];
         $response201 = $this->postJson('/api/donaciones', $payloadConForzar);
@@ -495,7 +495,7 @@ class ApiE2ETest extends TestCase
         $this->assertDatabaseCount('donaciones', 2);
         $this->assertDatabaseHas('autorizaciones_extraordinarias', [
             'paciente_id' => $paciente->id,
-            'usuario_id' => $usuario->id,
+            'usuario_id' => $this->staff->id,
         ]);
     }
 

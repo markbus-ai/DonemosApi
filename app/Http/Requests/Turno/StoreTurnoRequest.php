@@ -23,7 +23,6 @@ class StoreTurnoRequest extends FormRequest
             // Flujo de autorización extraordinaria (dos pasos)
             'forzar' => ['sometimes', 'boolean'],
             'motivo' => ['nullable', 'string', 'max:500', Rule::requiredIf(fn () => $this->boolean('forzar'))],
-            'usuario_id' => ['nullable', 'integer', 'exists:usuarios,id', Rule::requiredIf(fn () => $this->boolean('forzar'))],
         ];
     }
 }
