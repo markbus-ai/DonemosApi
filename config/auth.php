@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Models\Usuario;
 
 return [
 
@@ -42,6 +43,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Token-only staff guard over the usuarios table (desktop/mobile clients).
+        'staff' => [
+            'driver' => 'sanctum',
+            'provider' => 'usuarios',
+        ],
     ],
 
     /*
@@ -65,6 +72,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'usuarios' => [
+            'driver' => 'eloquent',
+            'model' => Usuario::class,
         ],
 
         // 'users' => [

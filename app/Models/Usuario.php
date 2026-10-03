@@ -3,17 +3,34 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Usuario extends Model
+class Usuario extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory;
 
     protected $table = 'usuarios';
 
     protected $fillable = ['username', 'password_hash', 'rol_id', 'sede_id'];
+
+    protected $hidden = ['password_hash'];
+
+    protected function casts(): array
+    {
+        return [
+            'rol_id' => 'integer',
+            'sede_id' => 'integer',
+        ];
+    }
+
+    // Staff credentials live in password_hash, not the framework default "password".
+    public function getAuthPasswordName(): string
+    {
+        return 'password_hash';
+    }
 
     public function rol(): BelongsTo
     {
