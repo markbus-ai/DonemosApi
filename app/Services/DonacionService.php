@@ -132,7 +132,7 @@ class DonacionService
      * treats an ABSENT `componentes` key as the legacy/internal path (no rows
      * written), which keeps direct-service callers backward compatible.
      *
-     * @return array<int, array{tipo_id: int}>|null Rows, or null when the key is absent.
+     * @return array<int, array{tipo_id: int, vencimiento: ?string, peso: ?float}>|null Rows, or null when the key is absent.
      *
      * @throws ValidationException when the set is empty, non-catalog or over-limit.
      */
@@ -146,6 +146,8 @@ class DonacionService
         $rows = array_map(
             fn ($componente): array => [
                 'tipo_id' => (int) (is_array($componente) ? ($componente['tipo_id'] ?? 0) : $componente),
+                'vencimiento' => is_array($componente) ? ($componente['vencimiento'] ?? null) : null,
+                'peso' => is_array($componente) ? ($componente['peso'] ?? null) : null,
             ],
             array_values($data['componentes'] ?? [])
         );

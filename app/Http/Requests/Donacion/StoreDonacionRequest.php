@@ -48,6 +48,8 @@ class StoreDonacionRequest extends FormRequest
             'componentes' => ['required', 'array', 'min:1'],
             'componentes.*' => ['array'],
             'componentes.*.tipo_id' => ['required', 'integer', 'exists:tipos_donacion,id'],
+            'componentes.*.vencimiento' => ['sometimes', 'nullable', 'date'],
+            'componentes.*.peso' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'fecha' => ['sometimes', 'date'],
             'forzar' => ['sometimes', 'boolean'],
             // operador_id is never accepted from the client; it comes from auth.

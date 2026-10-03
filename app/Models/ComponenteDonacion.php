@@ -12,7 +12,11 @@ class ComponenteDonacion extends Model
 
     protected $table = 'componentes_donacion';
 
-    protected $fillable = ['donacion_id', 'tipo_id'];
+    protected $fillable = ['donacion_id', 'tipo_id', 'vencimiento', 'peso'];
+
+    protected $casts = [
+        'peso' => 'decimal:2',
+    ];
 
     public function donacion(): BelongsTo
     {
