@@ -12,7 +12,11 @@ class Motivo extends Model
 
     protected $table = 'motivos';
 
-    protected $fillable = ['nombre'];
+    protected $fillable = ['nombre', 'codigo', 'plazo_meses'];
+
+    protected $casts = [
+        'plazo_meses' => 'integer',
+    ];
 
     public function observaciones(): HasMany
     {

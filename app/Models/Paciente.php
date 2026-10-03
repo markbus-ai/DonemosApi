@@ -33,9 +33,22 @@ class Paciente extends Model
         return $this->hasMany(Observacion::class, 'paciente_id');
     }
 
-    public function restriccion(): HasOne
+    /**
+     * Full deferral history; rows are closed, never deleted.
+     */
+    public function restricciones(): HasMany
     {
-        return $this->hasOne(Restriccion::class, 'paciente_id');
+        return $this->hasMany(Restriccion::class, 'paciente_id');
+    }
+
+    /**
+     * At most one active deferral as of today.
+     */
+    public function activeDeferral(): HasOne
+    {
+        return $this->hasOne(Restriccion::class, 'paciente_id')
+            ->vigente(now()->toDateString())
+            ->latest('desde');
     }
 
     public function donaciones(): HasMany
