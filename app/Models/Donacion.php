@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Donacion extends Model
 {
@@ -47,7 +48,7 @@ class Donacion extends Model
         'peso_donante' => 'decimal:2',
     ];
 
-    protected $appends = ['presion_arterial'];
+    protected $appends = ['presion_arterial', 'descartada'];
 
     // Serialized pressure string; null unless both mmHg values are present.
     public function getPresionArterialAttribute(): ?string
@@ -59,9 +60,41 @@ class Donacion extends Model
         return $this->presion_sistolica.'/'.$this->presion_diastolica;
     }
 
+    /**
+     * Derived discard state: true when a self-exclusion exists OR when the
+     * donation has at least one component and every one of them is discarded.
+     * A donation with no components and no self-exclusion is not discarded.
+     */
+    public function getDescartadaAttribute(): bool
+    {
+        $autoexcluida = $this->relationLoaded('autoexclusion')
+            ? $this->autoexclusion !== null
+            : $this->autoexclusion()->exists();
+
+        if ($autoexcluida) {
+            return true;
+        }
+
+        $componentes = $this->relationLoaded('componentes')
+            ? $this->componentes
+            : $this->componentes()->get();
+
+        if ($componentes->isEmpty()) {
+            return false;
+        }
+
+        return $componentes->every(fn (ComponenteDonacion $componente): bool => (bool) $componente->descartado);
+    }
+
     public function paciente(): BelongsTo
     {
         return $this->belongsTo(Paciente::class, 'paciente_id');
+    }
+
+    // Confidential self-exclusion; at most one per donation.
+    public function autoexclusion(): HasOne
+    {
+        return $this->hasOne(Autoexclusion::class, 'donacion_id');
     }
 
     // Site where the donation was collected.

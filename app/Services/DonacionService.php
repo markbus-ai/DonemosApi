@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Autoexclusion;
 use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
 use App\Models\Paciente;
@@ -14,6 +15,7 @@ use App\Support\ForcedAuthor;
 use App\Support\NumeroDonacion;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -115,6 +117,42 @@ class DonacionService
     public function list(int $pacienteId): Collection
     {
         return Donacion::where('paciente_id', $pacienteId)->orderByDesc('fecha')->get();
+    }
+
+    /**
+     * Record a confidential self-exclusion and, transactionally, discard every
+     * component of the donation. A duplicate record is an integrity error (422);
+     * the UNIQUE(donacion_id) constraint is the concurrency backstop.
+     */
+    public function marcarAutoexclusion(Donacion $donacion, array $data): Autoexclusion
+    {
+        if ($donacion->autoexclusion()->exists()) {
+            throw ValidationException::withMessages([
+                'autoexclusion' => ['La donación ya tiene una autoexclusión registrada.'],
+            ]);
+        }
+
+        try {
+            return DB::transaction(function () use ($donacion, $data): Autoexclusion {
+                /** @var Autoexclusion $autoexclusion */
+                $autoexclusion = $donacion->autoexclusion()->create([
+                    'motivo' => $data['motivo'] ?? null,
+                    'created_by' => auth('staff')->id(),
+                ]);
+
+                // Discard every unit; disposal keeps the discard reason non-null.
+                $donacion->componentes()->update([
+                    'descartado' => true,
+                    'motivo_descarte' => $data['motivo'] ?? 'Autoexclusión del donante',
+                ]);
+
+                return $autoexclusion;
+            });
+        } catch (QueryException) {
+            throw ValidationException::withMessages([
+                'autoexclusion' => ['La donación ya tiene una autoexclusión registrada.'],
+            ]);
+        }
     }
 
     /**
