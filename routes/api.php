@@ -9,6 +9,7 @@ require __DIR__.'/DonacionRouter.php';
 require __DIR__.'/AptitudRouter.php';
 require __DIR__.'/ObservacionRouter.php';
 require __DIR__.'/RestriccionRouter.php';
+require __DIR__.'/AuthRouter.php';
 
 Route::get('/user', function (Request $request) {
     return $request->user();

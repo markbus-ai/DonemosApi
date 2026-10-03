@@ -8,6 +8,7 @@ use Database\Seeders\UsuarioSeeder;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -85,5 +86,122 @@ class AuthTest extends TestCase
 
         $this->assertNotNull($usuario->rol_id);
         $this->assertTrue(Hash::check($password, $usuario->getAuthPassword()));
+    }
+
+    // -----------------------------------------------------------------
+    // Unit 2: Auth endpoints — login / me / logout / throttle
+    // -----------------------------------------------------------------
+
+    public function test_login_with_valid_credentials_returns_token_and_user(): void
+    {
+        $usuario = $this->makeUsuario('AD', '1234');
+
+        $response = $this->postJson('/api/auth/login', [
+            'username' => 'AD',
+            'password' => '1234',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'token',
+            'user' => ['id', 'username', 'rol_id', 'sede_id'],
+        ]);
+        $response->assertJsonPath('user.id', $usuario->id);
+        $response->assertJsonPath('user.username', 'AD');
+        $this->assertArrayNotHasKey('password_hash', $response->json('user'));
+        $this->assertDatabaseCount('personal_access_tokens', 1);
+    }
+
+    public function test_login_with_wrong_password_and_unknown_user_share_one_uniform_401(): void
+    {
+        $this->makeUsuario('AD', '1234');
+
+        $wrongPassword = $this->postJson('/api/auth/login', [
+            'username' => 'AD',
+            'password' => '9999',
+        ]);
+        $unknownUser = $this->postJson('/api/auth/login', [
+            'username' => 'ZZ',
+            'password' => '1234',
+        ]);
+
+        $wrongPassword->assertStatus(401);
+        $unknownUser->assertStatus(401);
+        $this->assertArrayNotHasKey('token', $wrongPassword->json());
+        $this->assertSame($wrongPassword->json(), $unknownUser->json());
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_login_lockout_returns_429_with_retry_after_even_for_correct_password(): void
+    {
+        $this->makeUsuario('AD', '1234');
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/auth/login', [
+                'username' => 'AD',
+                'password' => '9999',
+            ])->assertStatus(401);
+        }
+
+        $response = $this->postJson('/api/auth/login', [
+            'username' => 'AD',
+            'password' => '1234',
+        ]);
+
+        $response->assertStatus(429);
+        $this->assertTrue(
+            $response->headers->has('Retry-After'),
+            'Expected Retry-After header on lockout response'
+        );
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_me_returns_authenticated_user_without_password_hash(): void
+    {
+        $usuario = $this->makeUsuario('AD', '1234');
+        Sanctum::actingAs($usuario, ['*'], 'staff');
+
+        $response = $this->getJson('/api/auth/me');
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure(['id', 'username', 'rol_id', 'sede_id']);
+        $response->assertJsonPath('id', $usuario->id);
+        $response->assertJsonPath('username', 'AD');
+        $this->assertArrayNotHasKey('password_hash', $response->json());
+    }
+
+    public function test_me_without_token_returns_401(): void
+    {
+        $this->getJson('/api/auth/me')->assertStatus(401);
+    }
+
+    public function test_logout_revokes_only_the_requesting_token(): void
+    {
+        $usuario = $this->makeUsuario('AD', '1234');
+        $tokenA = $usuario->createToken('staff')->plainTextToken;
+        $tokenB = $usuario->createToken('staff')->plainTextToken;
+
+        $this->withToken($tokenA)->postJson('/api/auth/logout')->assertStatus(204);
+        $this->assertDatabaseCount('personal_access_tokens', 1);
+
+        // Simulate per-request guard isolation: this test makes several requests in one process.
+        $this->app['auth']->forgetGuards();
+
+        $this->withToken($tokenA)->getJson('/api/auth/me')->assertStatus(401);
+        $this->app['auth']->forgetGuards();
+        $this->withToken($tokenB)->getJson('/api/auth/me')->assertStatus(200);
+    }
+
+    public function test_logout_without_token_returns_401(): void
+    {
+        $this->postJson('/api/auth/logout')->assertStatus(401);
+    }
+
+    public function test_expired_token_is_rejected(): void
+    {
+        $usuario = $this->makeUsuario('AD', '1234');
+        $token = $usuario->createToken('staff', ['*'], now()->subMinute())->plainTextToken;
+
+        $this->withToken($token)->getJson('/api/auth/me')->assertStatus(401);
     }
 }
