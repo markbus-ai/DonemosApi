@@ -324,7 +324,7 @@ class DonacionTest extends TestCase
         ]);
 
         $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['componentes.0']);
+        $response->assertJsonValidationErrors(['componentes.0.tipo_id']);
         $this->assertDatabaseCount('donaciones', 0);
     }
 

@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             AptitudSeeder::class,
             TipoDonacionSeeder::class,
             UsuarioSeeder::class,
+            SedeSeeder::class,
         ]);
     }
 }

@@ -13,7 +13,7 @@ class Donacion extends Model
 
     protected $table = 'donaciones';
 
-    protected $fillable = ['paciente_id', 'sede_id', 'tipo_id', 'fecha'];
+    protected $fillable = ['paciente_id', 'sede_id', 'tipo_id', 'fecha', 'numero_donacion'];
 
     public function paciente(): BelongsTo
     {

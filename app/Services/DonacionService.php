@@ -5,10 +5,13 @@ namespace App\Services;
 use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
 use App\Models\Paciente;
+use App\Models\Sede;
 use App\Models\TipoDonacion;
 use App\Rules\ComponentRules;
 use App\Rules\DonationRules;
 use App\Support\ForcedAuthor;
+use App\Support\NumeroDonacion;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -63,16 +66,19 @@ class DonacionService
                 ]);
             }
 
+            $sede = $this->resolveSede($data);
+            $numero = NumeroDonacion::allocate($sede, (int) Carbon::parse($fecha)->year);
+
             $donacion = Donacion::create([
                 'paciente_id' => $paciente->id,
+                'sede_id' => $sede->id,
                 'tipo_id' => $tipo->id,
                 'fecha' => $fecha,
+                'numero_donacion' => $numero,
             ]);
 
             if ($componentes !== null) {
-                $donacion->componentes()->createMany(
-                    array_map(fn (int $tipoId): array => ['tipo_id' => $tipoId], $componentes)
-                );
+                $donacion->componentes()->createMany($componentes);
             }
 
             return [
@@ -89,13 +95,35 @@ class DonacionService
     }
 
     /**
-     * Validate the optional component set.
+     * Resolve the donation's sede: explicit payload, then the operator's home
+     * sede, then the database default (Sede Central).
+     */
+    private function resolveSede(array $data): Sede
+    {
+        if (! empty($data['sede_id'])) {
+            return Sede::findOrFail($data['sede_id']);
+        }
+
+        $staffSedeId = auth('staff')->user()?->sede_id;
+
+        if ($staffSedeId !== null) {
+            return Sede::findOrFail($staffSedeId);
+        }
+
+        $defaultId = DB::table('sedes')->where('nombre', 'Sede Central')->value('id')
+            ?? DB::table('sedes')->orderBy('id')->value('id');
+
+        return Sede::findOrFail($defaultId);
+    }
+
+    /**
+     * Validate the optional component set and normalize it to persistence rows.
      *
      * The HTTP request always requires at least one component. The service
      * treats an ABSENT `componentes` key as the legacy/internal path (no rows
      * written), which keeps direct-service callers backward compatible.
      *
-     * @return array<int, int>|null Ordered catalog ids, or null when the key is absent.
+     * @return array<int, array{tipo_id: int}>|null Rows, or null when the key is absent.
      *
      * @throws ValidationException when the set is empty, non-catalog or over-limit.
      */
@@ -105,7 +133,15 @@ class DonacionService
             return null;
         }
 
-        $ids = array_map('intval', array_values($data['componentes'] ?? []));
+        // Bare ints (legacy callers) and {tipo_id} objects both map to rows.
+        $rows = array_map(
+            fn ($componente): array => [
+                'tipo_id' => (int) (is_array($componente) ? ($componente['tipo_id'] ?? 0) : $componente),
+            ],
+            array_values($data['componentes'] ?? [])
+        );
+
+        $ids = array_column($rows, 'tipo_id');
         $tipos = TipoDonacion::whereIn('id', $ids)->get()->keyBy('id');
 
         $codigos = [];
@@ -127,7 +163,7 @@ class DonacionService
             throw ValidationException::withMessages(['componentes' => $errors]);
         }
 
-        return $ids;
+        return $rows;
     }
 
     private function buildMotivo(array $warnings): string

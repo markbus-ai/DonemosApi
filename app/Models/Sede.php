@@ -12,7 +12,7 @@ class Sede extends Model
 
     protected $table = 'sedes';
 
-    protected $fillable = ['nombre', 'direccion', 'telefono', 'activa'];
+    protected $fillable = ['nombre', 'codigo_localidad', 'direccion', 'telefono', 'activa'];
 
     protected $casts = [
         'activa' => 'boolean',
