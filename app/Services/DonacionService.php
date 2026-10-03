@@ -75,6 +75,15 @@ class DonacionService
                 'tipo_id' => $tipo->id,
                 'fecha' => $fecha,
                 'numero_donacion' => $numero,
+                'tipo_bolsa' => $data['tipo_bolsa'] ?? null,
+                'anticoagulante' => $data['anticoagulante'] ?? null,
+                'lote' => $data['lote'] ?? null,
+                'tubuladura' => $data['tubuladura'] ?? null,
+                'brazo' => $data['brazo'] ?? null,
+                'dificultad' => $data['dificultad'] ?? null,
+                // Attribution is never client-supplied.
+                'operador_id' => auth('staff')->id(),
+                'doble_etiqueta' => (bool) ($data['doble_etiqueta'] ?? false),
             ]);
 
             if ($componentes !== null) {

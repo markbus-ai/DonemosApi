@@ -13,7 +13,25 @@ class Donacion extends Model
 
     protected $table = 'donaciones';
 
-    protected $fillable = ['paciente_id', 'sede_id', 'tipo_id', 'fecha', 'numero_donacion'];
+    protected $fillable = [
+        'paciente_id',
+        'sede_id',
+        'tipo_id',
+        'fecha',
+        'numero_donacion',
+        'tipo_bolsa',
+        'anticoagulante',
+        'lote',
+        'tubuladura',
+        'brazo',
+        'dificultad',
+        'operador_id',
+        'doble_etiqueta',
+    ];
+
+    protected $casts = [
+        'doble_etiqueta' => 'boolean',
+    ];
 
     public function paciente(): BelongsTo
     {
