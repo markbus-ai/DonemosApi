@@ -44,10 +44,15 @@ class DonationRules
         // An active deferral blocks every donation type, regardless of history.
         $warnings = $this->checkDeferral($pacienteId, $fechaSolicitada->toDateString());
 
+        $pacienteModel = $paciente instanceof Paciente ? $paciente : Paciente::find($pacienteId);
+
         $historial = Donacion::where('paciente_id', $pacienteId)
             ->with('tipoDonacion')
             ->orderByDesc('fecha')
             ->get();
+
+        // Sex-aware minimum interval; skipped entirely when sex is unknown.
+        $warnings = array_merge($warnings, $this->checkSexInterval($pacienteModel, $historial, $fechaSolicitada));
 
         $codigoTipo = strtoupper((string) $tipoModel->codigo);
 
@@ -176,6 +181,56 @@ class DonationRules
             'allowed' => empty($warnings),
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * Emit WARNING_INTERVALO_SEXO when the latest donation is closer than the
+     * sex-specific minimum interval. Months come from config/donacion_intervalos.php;
+     * a patient with unknown (or unconfigured) sex gets no warning — the rule
+     * never guesses an interval.
+     *
+     * @param  \Illuminate\Support\Collection<int, Donacion>  $historial
+     * @return array<int, array{code: string, message: string}>
+     */
+    private function checkSexInterval(?Paciente $paciente, $historial, Carbon $fechaSolicitada): array
+    {
+        if ($paciente === null || $paciente->sexo === null) {
+            return [];
+        }
+
+        $minMeses = config('donacion_intervalos.min_por_sexo.'.strtoupper(trim((string) $paciente->sexo)));
+
+        if ($minMeses === null) {
+            return [];
+        }
+
+        $ultima = $historial->first();
+
+        if ($ultima === null) {
+            return [];
+        }
+
+        $fechaUltima = Carbon::parse($ultima->fecha)->startOfDay();
+
+        // Solicitudes anteriores a la última donación no aplican a esta regla.
+        if ($fechaUltima->greaterThan($fechaSolicitada)) {
+            return [];
+        }
+
+        $fechaLimite = $fechaUltima->copy()->addMonths((int) $minMeses);
+
+        if ($fechaSolicitada->lessThan($fechaLimite)) {
+            return [[
+                'code' => 'WARNING_INTERVALO_SEXO',
+                'message' => sprintf(
+                    'Intervalo mínimo entre donaciones no cumplido: %d meses (%s).',
+                    (int) $minMeses,
+                    $paciente->sexo,
+                ),
+            ]];
+        }
+
+        return [];
     }
 
     /**
