@@ -12,10 +12,15 @@ class TipoDonacion extends Model
 
     protected $table = 'tipos_donacion';
 
-    protected $fillable = ['nombre'];
+    protected $fillable = ['nombre', 'codigo'];
 
     public function donaciones(): HasMany
     {
         return $this->hasMany(Donacion::class, 'tipo_id');
+    }
+
+    public function componentes(): HasMany
+    {
+        return $this->hasMany(ComponenteDonacion::class, 'tipo_id');
     }
 }

@@ -12,13 +12,9 @@ class TipoDonacionSeeder extends Seeder
      */
     public function run(): void
     {
-        $nombres = [
-            'PLASMA',
-            'PLAQUETAS',
-        ];
-
-        foreach ($nombres as $nombre) {
-            TipoDonacion::firstOrCreate(['nombre' => $nombre]);
+        // codigo is the stable product key; nombre is display-only.
+        foreach (['SANGRE', 'PLASMA', 'PLAQUETAS'] as $codigo) {
+            TipoDonacion::updateOrCreate(['codigo' => $codigo], ['nombre' => $codigo]);
         }
     }
 }

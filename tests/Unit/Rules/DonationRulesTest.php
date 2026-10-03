@@ -20,9 +20,9 @@ class DonationRulesTest extends TestCase
         return Aptitud::create(['tipo' => $tipo]);
     }
 
-    private function createTipo(string $nombre = 'PLAQUETAS'): TipoDonacion
+    private function createTipo(string $codigo = 'PLAQUETAS'): TipoDonacion
     {
-        return TipoDonacion::create(['nombre' => $nombre]);
+        return TipoDonacion::create(['nombre' => $codigo, 'codigo' => $codigo]);
     }
 
     private function createPaciente(Aptitud $aptitud, array $overrides = []): Paciente
@@ -43,7 +43,7 @@ class DonationRulesTest extends TestCase
         $tipo = $this->createTipo('PLAQUETAS');
         $paciente = $this->createPaciente($aptitud);
 
-        $rules = new DonationRules();
+        $rules = new DonationRules;
         $result = $rules->check($paciente, $tipo, now()->toDateString());
 
         $this->assertTrue($result['allowed']);
@@ -52,6 +52,7 @@ class DonationRulesTest extends TestCase
 
     /**
      * Res. 536/2026 - PLAQUETAS intervalo < 48 horas -> WARNING_INTERVALO
+     *
      * @test
      */
     public function test_ultima_donacion_demasiado_reciente_warning_intervalo(): void
@@ -67,7 +68,7 @@ class DonationRulesTest extends TestCase
             'fecha' => now()->subDay()->toDateString(),
         ]);
 
-        $rules = new DonationRules();
+        $rules = new DonationRules;
         $result = $rules->check($paciente, $tipoPlaquetas, now()->toDateString());
 
         $this->assertFalse($result['allowed']);
@@ -78,6 +79,7 @@ class DonationRulesTest extends TestCase
 
     /**
      * Res. 536/2026 - Límite anual >24 en 12 meses -> WARNING_LIMITE_ANUAL
+     *
      * @test
      */
     public function test_limite_anual_alcanzado_warning_limite_anual(): void
@@ -95,7 +97,7 @@ class DonationRulesTest extends TestCase
             ]);
         }
 
-        $rules = new DonationRules();
+        $rules = new DonationRules;
         $result = $rules->check($paciente, $tipo, now()->toDateString());
 
         $this->assertFalse($result['allowed']);
@@ -105,6 +107,7 @@ class DonationRulesTest extends TestCase
 
     /**
      * Res. 536/2026 - Varias reglas incumplidas simultáneamente
+     *
      * @test
      */
     public function test_varias_reglas_incumplidas_devuelve_todos_los_warnings(): void
@@ -129,7 +132,7 @@ class DonationRulesTest extends TestCase
             'fecha' => now()->subDay()->toDateString(),
         ]);
 
-        $result = (new DonationRules())->check($paciente, $tipo, now()->toDateString());
+        $result = (new DonationRules)->check($paciente, $tipo, now()->toDateString());
 
         $codes = array_column($result['warnings'], 'code');
         $this->assertFalse($result['allowed']);
@@ -181,7 +184,7 @@ class DonationRulesTest extends TestCase
             'estado' => 'CANCELADO',
         ]);
 
-        $rules = new DonationRules();
+        $rules = new DonationRules;
         $result = $rules->check($paciente, $tipo, now()->toDateString());
 
         $this->assertTrue($result['allowed'], 'Turno CANCELADO no debe generar warning en DonationRules');
@@ -207,7 +210,7 @@ class DonationRulesTest extends TestCase
             'estado' => 'PENDIENTE',
         ]);
 
-        $rules = new DonationRules();
+        $rules = new DonationRules;
         $result = $rules->check($paciente, $tipo, now()->toDateString());
 
         // Comportamiento actual: DonationRules solo mira Donaciones, por lo que sigue allowed true.

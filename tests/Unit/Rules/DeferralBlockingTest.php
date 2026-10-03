@@ -34,9 +34,9 @@ class DeferralBlockingTest extends TestCase
         ]);
     }
 
-    private function tipo(string $nombre): TipoDonacion
+    private function tipo(string $codigo): TipoDonacion
     {
-        return TipoDonacion::firstOrCreate(['nombre' => $nombre]);
+        return TipoDonacion::firstOrCreate(['codigo' => $codigo], ['nombre' => $codigo]);
     }
 
     private function activarDiferimiento(Paciente $paciente, array $overrides = []): Restriccion
@@ -62,7 +62,7 @@ class DeferralBlockingTest extends TestCase
         $paciente = $this->paciente();
         $this->activarDiferimiento($paciente);
 
-        $result = (new DonationRules())->check($paciente, $this->tipo('SANGRE'), now()->toDateString());
+        $result = (new DonationRules)->check($paciente, $this->tipo('SANGRE'), now()->toDateString());
 
         $this->assertFalse($result['allowed']);
         $this->assertContains('BLOQUEO_DIFERIMIENTO', $this->codes($result));
@@ -74,7 +74,7 @@ class DeferralBlockingTest extends TestCase
         $this->activarDiferimiento($paciente);
 
         foreach (['PLAQUETAS', 'PLASMA'] as $nombre) {
-            $result = (new DonationRules())->check($paciente, $this->tipo($nombre), now()->toDateString());
+            $result = (new DonationRules)->check($paciente, $this->tipo($nombre), now()->toDateString());
 
             $this->assertFalse($result['allowed'], "{$nombre} should be blocked");
             $this->assertContains('BLOQUEO_DIFERIMIENTO', $this->codes($result), "{$nombre} should emit the block code");
@@ -87,7 +87,7 @@ class DeferralBlockingTest extends TestCase
         $this->activarDiferimiento($paciente, ['desde' => '2026-01-01', 'hasta' => '2026-02-01', 'permanente' => false]);
         $this->activarDiferimiento($paciente, ['desde' => '2026-03-01', 'hasta' => '2026-04-01', 'permanente' => false]);
 
-        $result = (new DonationRules())->check($paciente, $this->tipo('SANGRE'), now()->toDateString());
+        $result = (new DonationRules)->check($paciente, $this->tipo('SANGRE'), now()->toDateString());
 
         $this->assertTrue($result['allowed']);
         $this->assertNotContains('BLOQUEO_DIFERIMIENTO', $this->codes($result));
@@ -98,7 +98,7 @@ class DeferralBlockingTest extends TestCase
         $paciente = $this->paciente();
         Motivo::create(['nombre' => 'referencia', 'codigo' => 'REF', 'plazo_meses' => null]);
 
-        $result = (new DonationRules())->check($paciente, $this->tipo('SANGRE'), now()->toDateString());
+        $result = (new DonationRules)->check($paciente, $this->tipo('SANGRE'), now()->toDateString());
 
         $this->assertTrue($result['allowed']);
         $this->assertNotContains('BLOQUEO_DIFERIMIENTO', $this->codes($result));
@@ -114,11 +114,11 @@ class DeferralBlockingTest extends TestCase
             'permanente' => false,
         ]);
 
-        $blocked = (new DonationRules())->check($paciente, $this->tipo('SANGRE'), Carbon::today()->toDateString());
+        $blocked = (new DonationRules)->check($paciente, $this->tipo('SANGRE'), Carbon::today()->toDateString());
         $this->assertFalse($blocked['allowed']);
         $this->assertContains('BLOQUEO_DIFERIMIENTO', $this->codes($blocked));
 
-        $allowed = (new DonationRules())->check($paciente, $this->tipo('SANGRE'), $retorno);
+        $allowed = (new DonationRules)->check($paciente, $this->tipo('SANGRE'), $retorno);
         $this->assertTrue($allowed['allowed']);
     }
 
@@ -127,7 +127,7 @@ class DeferralBlockingTest extends TestCase
         $paciente = $this->paciente();
         $this->activarDiferimiento($paciente);
 
-        $rules = new TurnoRules(new DonationRules());
+        $rules = new TurnoRules(new DonationRules);
         $result = $rules->check($paciente, Carbon::tomorrow()->toDateString(), '10:00', null);
 
         $this->assertFalse($result['allowed']);
@@ -140,7 +140,7 @@ class DeferralBlockingTest extends TestCase
         $this->activarDiferimiento($paciente);
         $tipo = $this->tipo('PLAQUETAS');
 
-        $rules = new TurnoRules(new DonationRules());
+        $rules = new TurnoRules(new DonationRules);
         $result = $rules->check($paciente, Carbon::tomorrow()->toDateString(), '10:00', $tipo->id);
 
         $deferralCodes = array_filter($this->codes($result), fn ($code) => $code === 'BLOQUEO_DIFERIMIENTO');

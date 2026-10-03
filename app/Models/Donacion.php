@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Donacion extends Model
 {
@@ -28,5 +29,11 @@ class Donacion extends Model
     public function tipoDonacion(): BelongsTo
     {
         return $this->belongsTo(TipoDonacion::class, 'tipo_id');
+    }
+
+    // One row per donated bag; quantity equals the row count per type.
+    public function componentes(): HasMany
+    {
+        return $this->hasMany(ComponenteDonacion::class, 'donacion_id');
     }
 }

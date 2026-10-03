@@ -22,9 +22,9 @@ class TurnoRulesTest extends TestCase
         return Aptitud::create(['tipo' => $tipo]);
     }
 
-    private function createTipo(string $nombre = 'PLAQUETAS'): TipoDonacion
+    private function createTipo(string $codigo = 'PLAQUETAS'): TipoDonacion
     {
-        return TipoDonacion::firstOrCreate(['nombre' => $nombre]);
+        return TipoDonacion::firstOrCreate(['codigo' => $codigo], ['nombre' => $codigo]);
     }
 
     private function createPaciente(Aptitud $aptitud, array $overrides = []): Paciente
@@ -40,7 +40,7 @@ class TurnoRulesTest extends TestCase
 
     private function makeTurnoRules(): TurnoRules
     {
-        return new TurnoRules(new DonationRules());
+        return new TurnoRules(new DonationRules);
     }
 
     /** @test */
@@ -63,6 +63,7 @@ class TurnoRulesTest extends TestCase
     /**
      * Turno dentro del intervalo de donación (donación hace 1 día plaquetas, turno mañana)
      * debe retornar WARNING_INTERVALO vía DonationRules.
+     *
      * @test
      */
     public function test_turno_dentro_intervalo_donacion_warning_intervalo(): void

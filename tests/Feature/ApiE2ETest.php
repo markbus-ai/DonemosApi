@@ -2,15 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\ForcedOperationRequiresAuthenticationException;
 use App\Models\Aptitud;
-use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
 use App\Models\Motivo;
 use App\Models\Paciente;
 use App\Models\Restriccion;
 use App\Models\Rol;
 use App\Models\TipoDonacion;
+use App\Models\Turno;
 use App\Models\Usuario;
+use App\Services\DonacionService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -43,14 +45,14 @@ class ApiE2ETest extends TestCase
 
     private function seedTipos(): void
     {
-        foreach (['PLASMA', 'PLAQUETAS'] as $nombre) {
-            TipoDonacion::firstOrCreate(['nombre' => $nombre]);
+        foreach (['SANGRE', 'PLASMA', 'PLAQUETAS'] as $codigo) {
+            TipoDonacion::firstOrCreate(['codigo' => $codigo], ['nombre' => $codigo]);
         }
     }
 
-    private function getTipo(string $nombre): TipoDonacion
+    private function getTipo(string $codigo): TipoDonacion
     {
-        return TipoDonacion::where('nombre', $nombre)->firstOrFail();
+        return TipoDonacion::where('codigo', $codigo)->firstOrFail();
     }
 
     private function getAptitud(string $tipo): Aptitud
@@ -60,7 +62,7 @@ class ApiE2ETest extends TestCase
 
     private function createMotivo(string $nombre = 'test'): Motivo
     {
-        return Motivo::create(['nombre' => $nombre . '_' . uniqid()]);
+        return Motivo::create(['nombre' => $nombre.'_'.uniqid()]);
     }
 
     private function createRol(string $nombre = 'ADMIN'): Rol
@@ -71,8 +73,9 @@ class ApiE2ETest extends TestCase
     private function createUsuario(?Rol $rol = null): Usuario
     {
         $rol = $rol ?? $this->createRol();
+
         return Usuario::create([
-            'username' => 'user_' . uniqid(),
+            'username' => 'user_'.uniqid(),
             'password_hash' => 'hash_test',
             'rol_id' => $rol->id,
         ]);
@@ -81,6 +84,7 @@ class ApiE2ETest extends TestCase
     private function createPacienteModel(array $overrides = []): Paciente
     {
         $aptitud = $this->getAptitud('APTO');
+
         return Paciente::create(array_merge([
             'dni' => $this->generateDni(),
             'nombre' => 'Nombre',
@@ -92,7 +96,7 @@ class ApiE2ETest extends TestCase
 
     private function generateDni(): string
     {
-        return (string) random_int(10000000, 99999999) . random_int(10, 99);
+        return (string) random_int(10000000, 99999999).random_int(10, 99);
     }
 
     private function activateDeferral(Paciente $paciente, array $overrides = []): Restriccion
@@ -138,7 +142,7 @@ class ApiE2ETest extends TestCase
     public function test_02_get_pacientes_por_dni_200(): void
     {
         $paciente = $this->createPacienteModel();
-        $response = $this->getJson('/api/pacientes/' . $paciente->dni);
+        $response = $this->getJson('/api/pacientes/'.$paciente->dni);
         $response->assertStatus(200);
         $response->assertJsonFragment(['dni' => $paciente->dni]);
     }
@@ -149,7 +153,7 @@ class ApiE2ETest extends TestCase
     public function test_03_patch_pacientes_actualiza_telefono(): void
     {
         $paciente = $this->createPacienteModel(['telefono' => '111111']);
-        $response = $this->patchJson('/api/pacientes/' . $paciente->dni, [
+        $response = $this->patchJson('/api/pacientes/'.$paciente->dni, [
             'telefono' => '999888777',
         ]);
         $response->assertStatus(200);
@@ -167,7 +171,7 @@ class ApiE2ETest extends TestCase
     {
         $paciente = $this->createPacienteModel();
         $motivo = $this->createMotivo('motivo_no_apto');
-        $response = $this->patchJson('/api/pacientes/' . $paciente->dni . '/aptitud', [
+        $response = $this->patchJson('/api/pacientes/'.$paciente->dni.'/aptitud', [
             'tipo' => 'NO_APTO',
             'motivo_id' => $motivo->id,
             'desde' => now()->toDateString(),
@@ -197,7 +201,7 @@ class ApiE2ETest extends TestCase
             'hasta' => Carbon::tomorrow()->toDateString(),
         ];
 
-        $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/observacion', $payload);
+        $response = $this->postJson('/api/pacientes/'.$paciente->dni.'/observacion', $payload);
         $response->assertStatus(201);
         $response->assertJsonFragment(['motivo_id' => $motivo->id]);
         $this->assertDatabaseHas('observaciones', [
@@ -215,12 +219,12 @@ class ApiE2ETest extends TestCase
         $motivo1 = $this->createMotivo('motivo1');
         $motivo2 = $this->createMotivo('motivo2');
 
-        $this->postJson('/api/pacientes/' . $paciente->dni . '/observacion', [
+        $this->postJson('/api/pacientes/'.$paciente->dni.'/observacion', [
             'motivo_id' => $motivo1->id,
             'desde' => now()->toDateString(),
         ])->assertStatus(201);
 
-        $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/observacion', [
+        $response = $this->postJson('/api/pacientes/'.$paciente->dni.'/observacion', [
             'motivo_id' => $motivo2->id,
             'desde' => Carbon::tomorrow()->toDateString(),
         ]);
@@ -239,14 +243,14 @@ class ApiE2ETest extends TestCase
         $paciente = $this->createPacienteModel();
         $motivo = $this->createMotivo();
 
-        $this->postJson('/api/pacientes/' . $paciente->dni . '/observacion', [
+        $this->postJson('/api/pacientes/'.$paciente->dni.'/observacion', [
             'motivo_id' => $motivo->id,
             'desde' => now()->toDateString(),
         ])->assertStatus(201);
 
         $this->assertDatabaseCount('observaciones', 1);
 
-        $response = $this->deleteJson('/api/pacientes/' . $paciente->dni . '/observacion');
+        $response = $this->deleteJson('/api/pacientes/'.$paciente->dni.'/observacion');
         $response->assertStatus(204);
 
         $this->assertDatabaseCount('observaciones', 0);
@@ -266,7 +270,7 @@ class ApiE2ETest extends TestCase
             'hasta' => Carbon::tomorrow()->toDateString(),
         ];
 
-        $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', $payload);
+        $response = $this->postJson('/api/pacientes/'.$paciente->dni.'/restriccion', $payload);
         $response->assertStatus(201);
         $this->assertDatabaseHas('restricciones', [
             'paciente_id' => $paciente->id,
@@ -282,13 +286,13 @@ class ApiE2ETest extends TestCase
         $paciente = $this->createPacienteModel();
         $motivo = $this->createMotivo();
 
-        $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
+        $this->postJson('/api/pacientes/'.$paciente->dni.'/restriccion', [
             'motivo_id' => $motivo->id,
             'desde' => '2026-01-01',
             'hasta' => null,
         ])->assertStatus(201);
 
-        $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
+        $response = $this->postJson('/api/pacientes/'.$paciente->dni.'/restriccion', [
             'motivo_id' => $motivo->id,
             'desde' => '2026-03-01',
             'hasta' => null,
@@ -319,12 +323,12 @@ class ApiE2ETest extends TestCase
         $paciente = $this->createPacienteModel();
         $motivo = $this->createMotivo();
 
-        $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
+        $this->postJson('/api/pacientes/'.$paciente->dni.'/restriccion', [
             'motivo_id' => $motivo->id,
             'desde' => '2026-01-01',
         ])->assertStatus(201);
 
-        $this->deleteJson('/api/pacientes/' . $paciente->dni . '/restriccion')
+        $this->deleteJson('/api/pacientes/'.$paciente->dni.'/restriccion')
             ->assertStatus(204);
 
         // The row is retained and closed, not deleted.
@@ -337,7 +341,7 @@ class ApiE2ETest extends TestCase
         ]);
 
         $motivo2 = $this->createMotivo('otro');
-        $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
+        $response = $this->postJson('/api/pacientes/'.$paciente->dni.'/restriccion', [
             'motivo_id' => $motivo2->id,
             'desde' => '2026-03-01',
         ]);
@@ -372,7 +376,7 @@ class ApiE2ETest extends TestCase
         ]);
         // Verifica fecha via model (evita mismatch SQLite date vs datetime)
         $this->assertTrue(
-            \App\Models\Turno::where('paciente_id', $paciente->id)->whereDate('fecha', $fecha)->exists(),
+            Turno::where('paciente_id', $paciente->id)->whereDate('fecha', $fecha)->exists(),
             "Turno con fecha {$fecha} no encontrado"
         );
     }
@@ -409,7 +413,7 @@ class ApiE2ETest extends TestCase
         $codes = array_column($json['warnings'], 'code');
         $this->assertTrue(
             in_array('WARNING_INTERVALO', $codes) || in_array('INTERVALO_MINIMO', $codes) || in_array('TURNO_PENDIENTE_EXISTENTE', $codes),
-            'Expected WARNING_INTERVALO in warnings, got: ' . json_encode($codes)
+            'Expected WARNING_INTERVALO in warnings, got: '.json_encode($codes)
         );
         // No debe crear turno
         $this->assertDatabaseCount('turnos', 0);
@@ -448,7 +452,7 @@ class ApiE2ETest extends TestCase
             'paciente_id' => $paciente->id,
         ]);
         $this->assertTrue(
-            \App\Models\Turno::where('paciente_id', $paciente->id)->whereDate('fecha', $fechaTurno)->exists(),
+            Turno::where('paciente_id', $paciente->id)->whereDate('fecha', $fechaTurno)->exists(),
             "Turno con fecha {$fechaTurno} no encontrado"
         );
         $this->assertDatabaseHas('autorizaciones_extraordinarias', [
@@ -589,14 +593,14 @@ class ApiE2ETest extends TestCase
         $this->app['auth']->forgetGuards();
 
         try {
-            app(\App\Services\DonacionService::class)->create([
+            app(DonacionService::class)->create([
                 'paciente_id' => $paciente->id,
                 'tipo_id' => $tipoPlaquetas->id,
                 'fecha' => now()->toDateString(),
                 'forzar' => true,
             ]);
             $this->fail('Expected ForcedOperationRequiresAuthenticationException');
-        } catch (\App\Exceptions\ForcedOperationRequiresAuthenticationException $e) {
+        } catch (ForcedOperationRequiresAuthenticationException $e) {
             // expected: fail-closed
         }
 
@@ -677,14 +681,14 @@ class ApiE2ETest extends TestCase
         $this->app['auth']->forgetGuards();
 
         try {
-            app(\App\Services\DonacionService::class)->create([
+            app(DonacionService::class)->create([
                 'paciente_id' => $paciente->id,
                 'tipo_id' => $tipo->id,
                 'fecha' => now()->toDateString(),
                 'forzar' => true,
             ]);
             $this->fail('Expected ForcedOperationRequiresAuthenticationException');
-        } catch (\App\Exceptions\ForcedOperationRequiresAuthenticationException $e) {
+        } catch (ForcedOperationRequiresAuthenticationException $e) {
             // expected: fail-closed
         }
 
@@ -698,14 +702,14 @@ class ApiE2ETest extends TestCase
         $motivo = $this->createMotivo();
 
         // A permanent deferral must not carry a return date.
-        $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
+        $this->postJson('/api/pacientes/'.$paciente->dni.'/restriccion', [
             'motivo_id' => $motivo->id,
             'desde' => '2026-01-01',
             'permanente' => true,
             'hasta' => '2026-02-01',
         ])->assertStatus(422)->assertJsonValidationErrors(['hasta']);
 
-        $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
+        $response = $this->postJson('/api/pacientes/'.$paciente->dni.'/restriccion', [
             'motivo_id' => $motivo->id,
             'desde' => '2026-01-01',
             'permanente' => true,
@@ -724,7 +728,7 @@ class ApiE2ETest extends TestCase
         $paciente = $this->createPacienteModel();
         $motivo = $this->createMotivo();
 
-        $response = $this->patchJson('/api/pacientes/' . $paciente->dni . '/aptitud', [
+        $response = $this->patchJson('/api/pacientes/'.$paciente->dni.'/aptitud', [
             'tipo' => 'NO_APTO',
             'motivo_id' => $motivo->id,
             'desde' => now()->toDateString(),
@@ -760,7 +764,7 @@ class ApiE2ETest extends TestCase
         $payload = [
             'desde' => now()->toDateString(),
         ];
-        $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', $payload);
+        $response = $this->postJson('/api/pacientes/'.$paciente->dni.'/restriccion', $payload);
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['motivo_id']);
         $this->assertDatabaseCount('restricciones', 0);

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Aptitud;
-use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
 use App\Models\Paciente;
 use App\Models\Rol;
@@ -32,9 +31,9 @@ class DonacionTest extends TestCase
         return Aptitud::create(['tipo' => $tipo]);
     }
 
-    private function createTipo(string $nombre = 'PLASMA'): TipoDonacion
+    private function createTipo(string $codigo = 'PLASMA'): TipoDonacion
     {
-        return TipoDonacion::create(['nombre' => $nombre]);
+        return TipoDonacion::create(['nombre' => $codigo, 'codigo' => $codigo]);
     }
 
     private function createPaciente(Aptitud $aptitud): Paciente
@@ -51,6 +50,7 @@ class DonacionTest extends TestCase
     private function createUsuario(): Usuario
     {
         $rol = Rol::create(['nombre' => 'ADMIN']);
+
         return Usuario::create([
             'username' => fake()->unique()->userName(),
             'password_hash' => Hash::make('1234'),
