@@ -500,6 +500,75 @@ class ApiE2ETest extends TestCase
     }
 
     // -----------------------------------------------------------------
+    // Unit 4: Fail-closed override attribution
+    // -----------------------------------------------------------------
+
+    public function test_forced_turno_ignores_client_supplied_usuario_id(): void
+    {
+        $paciente = $this->createPacienteModel();
+        $tipoPlaquetas = $this->getTipo('PLAQUETAS');
+        $otro = $this->createUsuario();
+        $fechaTurno = Carbon::tomorrow()->toDateString();
+
+        Donacion::create([
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipoPlaquetas->id,
+            'fecha' => Carbon::parse($fechaTurno)->subDay()->toDateString(),
+        ]);
+
+        $response = $this->postJson('/api/turnos', [
+            'paciente_id' => $paciente->id,
+            'fecha' => $fechaTurno,
+            'hora' => '10:00',
+            'tipo_id' => $tipoPlaquetas->id,
+            'forzar' => true,
+            'usuario_id' => $otro->id,
+            'motivo' => 'Autorización extraordinaria por urgencia',
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertNotSame($this->staff->id, $otro->id);
+        $this->assertDatabaseHas('autorizaciones_extraordinarias', [
+            'paciente_id' => $paciente->id,
+            'usuario_id' => $this->staff->id,
+        ]);
+        $this->assertDatabaseMissing('autorizaciones_extraordinarias', [
+            'usuario_id' => $otro->id,
+        ]);
+    }
+
+    public function test_forced_donation_without_authentication_is_rejected_and_writes_nothing(): void
+    {
+        $paciente = $this->createPacienteModel();
+        $tipoPlaquetas = $this->getTipo('PLAQUETAS');
+        $fechaDonacionPrevia = now()->subDay()->toDateString();
+
+        Donacion::create([
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipoPlaquetas->id,
+            'fecha' => $fechaDonacionPrevia,
+        ]);
+
+        // Drop the resolved staff guard; the persisted $this->staff row must not be used.
+        $this->app['auth']->forgetGuards();
+
+        try {
+            app(\App\Services\DonacionService::class)->create([
+                'paciente_id' => $paciente->id,
+                'tipo_id' => $tipoPlaquetas->id,
+                'fecha' => now()->toDateString(),
+                'forzar' => true,
+            ]);
+            $this->fail('Expected ForcedOperationRequiresAuthenticationException');
+        } catch (\App\Exceptions\ForcedOperationRequiresAuthenticationException $e) {
+            // expected: fail-closed
+        }
+
+        $this->assertDatabaseCount('autorizaciones_extraordinarias', 0);
+        $this->assertDatabaseCount('donaciones', 1); // only the violating history row
+    }
+
+    // -----------------------------------------------------------------
     // 16. Validación: POST /api/pacientes sin dni -> 422
     // -----------------------------------------------------------------
     public function test_16_validacion_post_pacientes_sin_dni_422(): void

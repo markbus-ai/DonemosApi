@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AutorizacionExtraordinaria;
 use App\Models\Turno;
 use App\Rules\TurnoRules;
+use App\Support\ForcedAuthor;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -67,16 +68,16 @@ class TurnoService
             // Si había violación y el personal forzó, registrar autorización
             if (!empty($warnings) && !empty($data['forzar'])) {
                 $motivo = $this->buildMotivo($warnings);
-                $usuarioId = $data['usuario_id'] ?? auth()->id() ?? \App\Models\Usuario::first()?->id;
 
-                if ($usuarioId) {
-                    AutorizacionExtraordinaria::create([
-                        'paciente_id' => $data['paciente_id'],
-                        'usuario_id' => $usuarioId,
-                        'motivo' => $motivo,
-                        'fecha' => now(),
-                    ]);
-                }
+                // Fail-closed: only the authenticated staff operator can authorize.
+                $usuarioId = ForcedAuthor::idOrFail();
+
+                AutorizacionExtraordinaria::create([
+                    'paciente_id' => $data['paciente_id'],
+                    'usuario_id' => $usuarioId,
+                    'motivo' => $motivo,
+                    'fecha' => now(),
+                ]);
             }
 
             return $turno;

@@ -7,6 +7,7 @@ use App\Models\Donacion;
 use App\Models\Paciente;
 use App\Models\TipoDonacion;
 use App\Rules\DonationRules;
+use App\Support\ForcedAuthor;
 use Illuminate\Support\Facades\DB;
 
 class DonacionService
@@ -43,17 +44,15 @@ class DonacionService
                 // Motivo autogenerado a partir del code, no viene del cliente
                 $motivo = $this->buildMotivo($warnings);
 
-                // TODO: usuario_id debe venir del contexto auth. Por ahora fallback a primer usuario o null.
-                $usuarioId = $data['usuario_id'] ?? auth()->id() ?? \App\Models\Usuario::first()?->id;
+                // Fail-closed: only the authenticated staff operator can authorize.
+                $usuarioId = ForcedAuthor::idOrFail();
 
-                if ($usuarioId) {
-                    AutorizacionExtraordinaria::create([
-                        'paciente_id' => $paciente->id,
-                        'usuario_id' => $usuarioId,
-                        'motivo' => $motivo,
-                        'fecha' => now(),
-                    ]);
-                }
+                AutorizacionExtraordinaria::create([
+                    'paciente_id' => $paciente->id,
+                    'usuario_id' => $usuarioId,
+                    'motivo' => $motivo,
+                    'fecha' => now(),
+                ]);
             }
 
             $donacion = Donacion::create([
