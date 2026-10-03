@@ -16,10 +16,9 @@ class StoreRestriccionRequest extends FormRequest
         return [
             'motivo_id' => ['required', 'integer', 'exists:motivos,id'],
             'desde' => ['required', 'date'],
-            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'permanente' => ['sometimes', 'boolean'],
+            // A permanent deferral has no return date; history is closed by the service.
+            'hasta' => ['nullable', 'date', 'after_or_equal:desde', 'prohibited_if:permanente,true'],
         ];
     }
-
-    // TODO Service: validar cardinalidad ||--o| (máximo una restricción vigente por paciente)
-    // Si ya existe una con hasta = null o hasta >= today, rechazar con 409.
 }

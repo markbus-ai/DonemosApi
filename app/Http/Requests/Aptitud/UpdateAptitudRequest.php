@@ -28,6 +28,7 @@ class UpdateAptitudRequest extends FormRequest
                 Rule::requiredIf(fn () => in_array($this->input('tipo'), ['APTO_OBSERVACION', 'NO_APTO'])),
             ],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'permanente' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
 use App\Models\Motivo;
 use App\Models\Paciente;
+use App\Models\Restriccion;
 use App\Models\Rol;
 use App\Models\TipoDonacion;
 use App\Models\Usuario;
@@ -92,6 +93,19 @@ class ApiE2ETest extends TestCase
     private function generateDni(): string
     {
         return (string) random_int(10000000, 99999999) . random_int(10, 99);
+    }
+
+    private function activateDeferral(Paciente $paciente, array $overrides = []): Restriccion
+    {
+        $motivo = $this->createMotivo();
+
+        return Restriccion::create(array_merge([
+            'paciente_id' => $paciente->id,
+            'motivo_id' => $motivo->id,
+            'desde' => now()->subDay()->toDateString(),
+            'hasta' => null,
+            'permanente' => true,
+        ], $overrides));
     }
 
     // -----------------------------------------------------------------
@@ -261,9 +275,9 @@ class ApiE2ETest extends TestCase
     }
 
     // -----------------------------------------------------------------
-    // 9. POST segunda restriccion mismo paciente -> 409 (DomainException)
+    // 9. POST segunda restriccion mismo paciente -> 201 con historial (cierra la anterior)
     // -----------------------------------------------------------------
-    public function test_09_post_segunda_restriccion_409(): void
+    public function test_09_post_segunda_restriccion_201_con_historial(): void
     {
         $paciente = $this->createPacienteModel();
         $motivo = $this->createMotivo();
@@ -271,22 +285,36 @@ class ApiE2ETest extends TestCase
         $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
             'motivo_id' => $motivo->id,
             'desde' => '2026-01-01',
-            'hasta' => '2026-02-01',
+            'hasta' => null,
         ])->assertStatus(201);
 
         $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
             'motivo_id' => $motivo->id,
             'desde' => '2026-03-01',
+            'hasta' => null,
         ]);
-        $response->assertStatus(409);
-        $response->assertJsonFragment(['message' => 'El paciente ya tiene una restricción.']);
-        $this->assertDatabaseCount('restricciones', 1);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseCount('restricciones', 2);
+        // Prior active row is closed at the new deferral's start date.
+        $this->assertDatabaseHas('restricciones', [
+            'paciente_id' => $paciente->id,
+            'desde' => '2026-01-01',
+            'hasta' => '2026-03-01',
+            'permanente' => false,
+        ]);
+        $this->assertDatabaseHas('restricciones', [
+            'paciente_id' => $paciente->id,
+            'desde' => '2026-03-01',
+            'hasta' => null,
+            'permanente' => true,
+        ]);
     }
 
     // -----------------------------------------------------------------
-    // 10. DELETE /api/pacientes/{dni}/restriccion -> 204, luego POST otra -> 201
+    // 10. DELETE /api/pacientes/{dni}/restriccion cierra (204), luego POST otra -> 201
     // -----------------------------------------------------------------
-    public function test_10_delete_restriccion_luego_post_otra_201(): void
+    public function test_10_delete_restriccion_cierra_luego_post_otra_201(): void
     {
         $paciente = $this->createPacienteModel();
         $motivo = $this->createMotivo();
@@ -299,7 +327,14 @@ class ApiE2ETest extends TestCase
         $this->deleteJson('/api/pacientes/' . $paciente->dni . '/restriccion')
             ->assertStatus(204);
 
-        $this->assertDatabaseCount('restricciones', 0);
+        // The row is retained and closed, not deleted.
+        $this->assertDatabaseCount('restricciones', 1);
+        $this->assertDatabaseHas('restricciones', [
+            'paciente_id' => $paciente->id,
+            'desde' => '2026-01-01',
+            'hasta' => now()->toDateString(),
+            'permanente' => false,
+        ]);
 
         $motivo2 = $this->createMotivo('otro');
         $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
@@ -307,6 +342,7 @@ class ApiE2ETest extends TestCase
             'desde' => '2026-03-01',
         ]);
         $response->assertStatus(201);
+        $this->assertDatabaseCount('restricciones', 2);
         $this->assertDatabaseHas('restricciones', [
             'paciente_id' => $paciente->id,
             'motivo_id' => $motivo2->id,
@@ -566,6 +602,137 @@ class ApiE2ETest extends TestCase
 
         $this->assertDatabaseCount('autorizaciones_extraordinarias', 0);
         $this->assertDatabaseCount('donaciones', 1); // only the violating history row
+    }
+
+    // -----------------------------------------------------------------
+    // 18. Deferral blocking E2E — turno and donation 409 with stable code
+    // -----------------------------------------------------------------
+    public function test_18_turno_with_active_deferral_returns_409_bloqueo_diferimiento(): void
+    {
+        $paciente = $this->createPacienteModel();
+        $this->activateDeferral($paciente);
+
+        $response = $this->postJson('/api/turnos', [
+            'paciente_id' => $paciente->id,
+            'fecha' => Carbon::tomorrow()->toDateString(),
+            'hora' => '10:00',
+        ]);
+
+        $response->assertStatus(409);
+        $codes = array_column($response->json('warnings'), 'code');
+        $this->assertContains('BLOQUEO_DIFERIMIENTO', $codes);
+        $this->assertDatabaseCount('turnos', 0);
+    }
+
+    public function test_19_donation_with_active_deferral_returns_409_bloqueo_diferimiento(): void
+    {
+        $paciente = $this->createPacienteModel();
+        $tipo = $this->getTipo('PLASMA');
+        $this->activateDeferral($paciente);
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipo->id,
+            'fecha' => now()->toDateString(),
+        ]);
+
+        $response->assertStatus(409);
+        $codes = array_column($response->json('warnings'), 'code');
+        $this->assertContains('BLOQUEO_DIFERIMIENTO', $codes);
+        $this->assertDatabaseCount('donaciones', 0);
+    }
+
+    public function test_20_forced_donation_with_permanent_deferral_is_audited(): void
+    {
+        $paciente = $this->createPacienteModel();
+        $tipo = $this->getTipo('PLASMA');
+        $this->activateDeferral($paciente, ['permanente' => true]);
+
+        $response = $this->postJson('/api/donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipo->id,
+            'fecha' => now()->toDateString(),
+            'forzar' => true,
+            'motivo' => 'Override clínico autorizado',
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('donaciones', [
+            'paciente_id' => $paciente->id,
+            'tipo_id' => $tipo->id,
+        ]);
+        $this->assertDatabaseHas('autorizaciones_extraordinarias', [
+            'paciente_id' => $paciente->id,
+            'usuario_id' => $this->staff->id,
+        ]);
+    }
+
+    public function test_21_forced_deferral_donation_without_auth_writes_nothing(): void
+    {
+        $paciente = $this->createPacienteModel();
+        $tipo = $this->getTipo('PLASMA');
+        $this->activateDeferral($paciente);
+
+        // Drop the resolved staff guard; the persisted $this->staff row must not be used.
+        $this->app['auth']->forgetGuards();
+
+        try {
+            app(\App\Services\DonacionService::class)->create([
+                'paciente_id' => $paciente->id,
+                'tipo_id' => $tipo->id,
+                'fecha' => now()->toDateString(),
+                'forzar' => true,
+            ]);
+            $this->fail('Expected ForcedOperationRequiresAuthenticationException');
+        } catch (\App\Exceptions\ForcedOperationRequiresAuthenticationException $e) {
+            // expected: fail-closed
+        }
+
+        $this->assertDatabaseCount('autorizaciones_extraordinarias', 0);
+        $this->assertDatabaseCount('donaciones', 0);
+    }
+
+    public function test_22_permanent_restriccion_via_http(): void
+    {
+        $paciente = $this->createPacienteModel();
+        $motivo = $this->createMotivo();
+
+        // A permanent deferral must not carry a return date.
+        $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
+            'motivo_id' => $motivo->id,
+            'desde' => '2026-01-01',
+            'permanente' => true,
+            'hasta' => '2026-02-01',
+        ])->assertStatus(422)->assertJsonValidationErrors(['hasta']);
+
+        $response = $this->postJson('/api/pacientes/' . $paciente->dni . '/restriccion', [
+            'motivo_id' => $motivo->id,
+            'desde' => '2026-01-01',
+            'permanente' => true,
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('restricciones', [
+            'paciente_id' => $paciente->id,
+            'hasta' => null,
+            'permanente' => true,
+        ]);
+    }
+
+    public function test_23_aptitud_rejects_non_boolean_permanente(): void
+    {
+        $paciente = $this->createPacienteModel();
+        $motivo = $this->createMotivo();
+
+        $response = $this->patchJson('/api/pacientes/' . $paciente->dni . '/aptitud', [
+            'tipo' => 'NO_APTO',
+            'motivo_id' => $motivo->id,
+            'desde' => now()->toDateString(),
+            'permanente' => 'not-a-boolean',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['permanente']);
     }
 
     // -----------------------------------------------------------------
