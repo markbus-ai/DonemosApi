@@ -19,8 +19,14 @@ class Paciente extends Model
         'nombre',
         'apellido',
         'telefono',
+        'sexo',
+        'altura',
         // aptitud_id: default APTO se asigna en Service/Observer, no en DB
         'aptitud_id',
+    ];
+
+    protected $casts = [
+        'altura' => 'decimal:1',
     ];
 
     public function aptitud(): BelongsTo

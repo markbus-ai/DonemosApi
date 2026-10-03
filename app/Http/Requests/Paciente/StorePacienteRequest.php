@@ -19,6 +19,8 @@ class StorePacienteRequest extends FormRequest
             'nombre' => ['required', 'string', 'max:100'],
             'apellido' => ['required', 'string', 'max:100'],
             'telefono' => ['required', 'string', 'max:20'],
+            'sexo' => ['nullable', 'string', 'in:M,F'],
+            'altura' => ['nullable', 'numeric', 'gt:0', 'max:250'],
         ];
     }
 }

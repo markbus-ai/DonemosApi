@@ -17,6 +17,8 @@ class UpdatePacienteRequest extends FormRequest
             'nombre' => ['sometimes', 'string', 'max:100'],
             'apellido' => ['sometimes', 'string', 'max:100'],
             'telefono' => ['sometimes', 'string', 'max:20'],
+            'sexo' => ['sometimes', 'nullable', 'string', 'in:M,F'],
+            'altura' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:250'],
         ];
     }
 }

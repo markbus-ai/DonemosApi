@@ -16,6 +16,8 @@ class PacienteService
             'nombre' => $data['nombre'],
             'apellido' => $data['apellido'],
             'telefono' => $data['telefono'],
+            'sexo' => $data['sexo'] ?? null,
+            'altura' => $data['altura'] ?? null,
             'aptitud_id' => $aptitud->id,
         ]);
     }
