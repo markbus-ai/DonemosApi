@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\AutorizacionExtraordinaria;
+use App\Models\Sede;
 use App\Models\Turno;
+use App\Rules\CapacidadRules;
 use App\Rules\TurnoRules;
 use App\Support\ForcedAuthor;
 use Illuminate\Support\Collection;
@@ -13,7 +15,8 @@ use Illuminate\Support\Facades\Schema;
 class TurnoService
 {
     public function __construct(
-        private TurnoRules $turnoRules
+        private TurnoRules $turnoRules,
+        private CapacidadRules $capacidadRules
     ) {}
 
     public function list(array $filters = []): Collection
@@ -39,6 +42,23 @@ class TurnoService
      */
     public function create(array $data): Turno|array
     {
+        // Resolve the sede up front: the capacity gate needs it, and it must be
+        // pinned into the payload so the row and the sum agree on the site.
+        $sedeId = $this->resolveSedeId($data);
+
+        // Capacity is a blocking hard limit: it preempts the warnings path so
+        // `forzar` can never bypass it. Over-limit returns the same 409 envelope
+        // the Controller already maps.
+        $capacidad = $this->capacidadRules->check(
+            $sedeId,
+            $data['fecha'],
+            $data['tipo_id'] ?? null,
+        );
+
+        if (! $capacidad['allowed']) {
+            return $this->capacidadExcedida($capacidad);
+        }
+
         $warnings = $this->resolveWarnings($data);
 
         if (!empty($warnings) && empty($data['forzar'])) {
@@ -50,9 +70,10 @@ class TurnoService
             ];
         }
 
-        return DB::transaction(function () use ($data, $warnings) {
+        return DB::transaction(function () use ($data, $warnings, $sedeId) {
             $payload = [
                 'paciente_id' => $data['paciente_id'],
+                'sede_id' => $sedeId,
                 'fecha' => $data['fecha'],
                 'hora' => $data['hora'],
                 'estado' => 'PENDIENTE',
@@ -89,6 +110,56 @@ class TurnoService
         $turno->update($data);
 
         return $turno->fresh();
+    }
+
+    /**
+     * Build the blocking capacity result. Mirrors the warnings 409 envelope so
+     * the Controller needs no new branch; `forzar` is intentionally absent from
+     * the message because this gate is not overridable.
+     *
+     * @param  array{used: int, limite: int, candidate: int, available: int}  $capacidad
+     * @return array{warning: true, code: string, message: string, warnings: array}
+     */
+    private function capacidadExcedida(array $capacidad): array
+    {
+        $message = sprintf(
+            'CAPACIDAD_EXCEDIDA: la sede alcanzó el límite diario (%d min); turno de %d min, %d min disponibles.',
+            $capacidad['limite'],
+            $capacidad['candidate'],
+            $capacidad['available'],
+        );
+
+        return [
+            'warning' => true,
+            'code' => 'CAPACIDAD_EXCEDIDA',
+            'message' => $message,
+            'warnings' => [[
+                'code' => 'CAPACIDAD_EXCEDIDA',
+                'message' => $message,
+            ]],
+        ];
+    }
+
+    /**
+     * Resolve the turno's sede: explicit payload, then the operator's home sede,
+     * then the database default (Sede Central), mirroring DonacionService.
+     */
+    private function resolveSedeId(array $data): int
+    {
+        if (! empty($data['sede_id'])) {
+            return (int) $data['sede_id'];
+        }
+
+        $staffSedeId = auth('staff')->user()?->sede_id;
+
+        if ($staffSedeId !== null) {
+            return (int) $staffSedeId;
+        }
+
+        $defaultId = DB::table('sedes')->where('nombre', 'Sede Central')->value('id')
+            ?? DB::table('sedes')->orderBy('id')->value('id');
+
+        return (int) $defaultId;
     }
 
     /**

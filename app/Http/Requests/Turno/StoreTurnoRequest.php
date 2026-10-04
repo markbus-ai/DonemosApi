@@ -20,6 +20,9 @@ class StoreTurnoRequest extends FormRequest
             'hora' => ['required', 'date_format:H:i'],
             'tipo_id' => ['sometimes', 'integer', 'exists:tipos_donacion,id'],
 
+            // Optional site; the Service resolves payload → staff sede → default.
+            'sede_id' => ['sometimes', 'nullable', 'integer', 'exists:sedes,id'],
+
             // Flujo de autorización extraordinaria (dos pasos)
             'forzar' => ['sometimes', 'boolean'],
             'motivo' => ['nullable', 'string', 'max:500', Rule::requiredIf(fn () => $this->boolean('forzar'))],
