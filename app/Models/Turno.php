@@ -12,7 +12,7 @@ class Turno extends Model
 
     protected $table = 'turnos';
 
-    protected $fillable = ['paciente_id', 'sede_id', 'fecha', 'hora', 'estado'];
+    protected $fillable = ['paciente_id', 'tipo_id', 'sede_id', 'fecha', 'hora', 'estado'];
 
     protected $casts = [
         'fecha' => 'date',
@@ -28,5 +28,11 @@ class Turno extends Model
     public function sede(): BelongsTo
     {
         return $this->belongsTo(Sede::class, 'sede_id');
+    }
+
+    // Donation type requested for the appointment; null for legacy rows.
+    public function tipoDonacion(): BelongsTo
+    {
+        return $this->belongsTo(TipoDonacion::class, 'tipo_id');
     }
 }

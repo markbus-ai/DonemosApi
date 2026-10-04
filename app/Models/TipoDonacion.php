@@ -12,10 +12,11 @@ class TipoDonacion extends Model
 
     protected $table = 'tipos_donacion';
 
-    protected $fillable = ['nombre', 'codigo', 'es_aferesis'];
+    protected $fillable = ['nombre', 'codigo', 'es_aferesis', 'duracion_minutos'];
 
     protected $casts = [
         'es_aferesis' => 'boolean',
+        'duracion_minutos' => 'integer',
     ];
 
     public function donaciones(): HasMany
