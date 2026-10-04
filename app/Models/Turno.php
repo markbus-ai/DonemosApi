@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Turno extends Model
 {
@@ -34,5 +35,11 @@ class Turno extends Model
     public function tipoDonacion(): BelongsTo
     {
         return $this->belongsTo(TipoDonacion::class, 'tipo_id');
+    }
+
+    // Pre-donation reminder history; a manual trigger appends a row.
+    public function recordatorios(): HasMany
+    {
+        return $this->hasMany(RecordatorioTurno::class, 'turno_id');
     }
 }
