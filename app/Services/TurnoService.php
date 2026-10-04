@@ -22,6 +22,7 @@ class TurnoService
     public function list(array $filters = []): Collection
     {
         return Turno::query()
+            ->with(['paciente', 'sede', 'tipoDonacion'])
             ->when(isset($filters['paciente_id']), fn ($q) => $q->where('paciente_id', $filters['paciente_id']))
             ->when(isset($filters['fecha']), fn ($q) => $q->whereDate('fecha', $filters['fecha']))
             ->orderBy('fecha')

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Turno\StoreTurnoRequest;
 use App\Http\Requests\Turno\UpdateTurnoRequest;
+use App\Http\Resources\TurnoResource;
 use App\Models\Turno;
 use App\Services\TurnoService;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class TurnoController
     {
         $turnos = $this->turnoService->list($request->only(['paciente_id', 'fecha']));
 
-        return response()->json($turnos);
+        return response()->json(TurnoResource::collection($turnos));
     }
 
     public function store(StoreTurnoRequest $request)
@@ -30,7 +31,9 @@ class TurnoController
             return response()->json($result, 409);
         }
 
-        return response()->json($result, 201);
+        $result->load(['paciente', 'sede', 'tipoDonacion']);
+
+        return response()->json(new TurnoResource($result), 201);
     }
 
     public function update(string $id, UpdateTurnoRequest $request)
@@ -38,6 +41,8 @@ class TurnoController
         $turno = Turno::findOrFail($id);
         $turno = $this->turnoService->update($turno, $request->validated());
 
-        return response()->json($turno);
+        $turno->load(['paciente', 'sede', 'tipoDonacion']);
+
+        return response()->json(new TurnoResource($turno));
     }
 }
