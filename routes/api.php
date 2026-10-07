@@ -11,6 +11,8 @@ Route::middleware('auth:staff')->group(function () {
     require __DIR__.'/AptitudRouter.php';
     require __DIR__.'/ObservacionRouter.php';
     require __DIR__.'/RestriccionRouter.php';
+    require __DIR__.'/TipoDonacionRouter.php';
+    require __DIR__.'/MotivoRouter.php';
 });
 
 require __DIR__.'/AuthRouter.php';
