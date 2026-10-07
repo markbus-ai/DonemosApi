@@ -15,8 +15,10 @@ class TurnoResource extends JsonResource
             'paciente_id' => $this->paciente_id,
             'sede_id' => $this->sede_id,
             'tipo_id' => $this->tipo_id,
-            'fecha' => $this->fecha,
-            'hora' => $this->hora,
+            // Date-only and time-only: clients render these directly and must not
+            // receive a full ISO timestamp for a calendar slot.
+            'fecha' => $this->fecha?->format('Y-m-d'),
+            'hora' => $this->hora?->format('H:i'),
             'estado' => $this->estado,
             'paciente' => $this->whenLoaded('paciente', fn () => $this->paciente === null ? null : [
                 'id' => $this->paciente->id,

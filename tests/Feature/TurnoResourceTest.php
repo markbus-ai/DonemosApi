@@ -138,7 +138,8 @@ class TurnoResourceTest extends TestCase
         $byFecha = $this->getJson('/api/turnos?fecha=2026-06-02');
         $byFecha->assertStatus(200);
         $this->assertCount(1, $byFecha->json());
-        $byFecha->assertJsonPath('0.fecha', '2026-06-02T00:00:00.000000Z');
+        // Date-only shape: clients render the slot date directly.
+        $byFecha->assertJsonPath('0.fecha', '2026-06-02');
     }
 
     public function test_store_response_includes_relations(): void
