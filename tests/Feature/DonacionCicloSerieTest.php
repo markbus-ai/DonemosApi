@@ -15,11 +15,11 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * Manual donation-cycle metadata (`ciclo` / `serie` / `donacion`) stored per
- * donation. The staff decides these values; the system never computes, copies
- * or increments them from the patient counters or the donation history.
- * `donacion` is the ordinal WITHIN the serie, distinct from `numero_donacion`
- * (the traceability code).
+ * Donation-cycle metadata (`ciclo` / `serie` / `donacion`) stored per donation.
+ * By default the system computes the next position from the patient counters;
+ * sending all three fields is an explicit override used as-is. Either way the
+ * patient counters are re-synced. `donacion` is the ordinal WITHIN the serie,
+ * distinct from `numero_donacion` (the traceability code).
  */
 class DonacionCicloSerieTest extends TestCase
 {
@@ -117,7 +117,7 @@ class DonacionCicloSerieTest extends TestCase
         ]);
     }
 
-    public function test_creating_donation_without_cycle_fields_keeps_them_null(): void
+    public function test_creating_donation_without_cycle_fields_auto_computes_next_position(): void
     {
         $tipo = $this->tipo();
         $paciente = $this->paciente();
@@ -125,15 +125,15 @@ class DonacionCicloSerieTest extends TestCase
         $response = $this->postJson('/api/donaciones', $this->payload($paciente, $tipo));
 
         $response->assertStatus(201);
-        $this->assertNull($response->json('ciclo'));
-        $this->assertNull($response->json('serie'));
-        $this->assertNull($response->json('donacion'));
+        $this->assertSame(1, $response->json('ciclo'));
+        $this->assertSame(1, $response->json('serie'));
+        $this->assertSame(1, $response->json('donacion'));
 
         $this->assertDatabaseHas('donaciones', [
             'paciente_id' => $paciente->id,
-            'ciclo' => null,
-            'serie' => null,
-            'donacion' => null,
+            'ciclo' => 1,
+            'serie' => 1,
+            'donacion' => 1,
         ]);
     }
 
@@ -191,7 +191,7 @@ class DonacionCicloSerieTest extends TestCase
         $this->assertDatabaseCount('donaciones', 0);
     }
 
-    public function test_creating_donation_does_not_touch_patient_counters(): void
+    public function test_explicit_override_updates_patient_counters(): void
     {
         $tipo = $this->tipo();
         $paciente = $this->paciente([
@@ -209,8 +209,8 @@ class DonacionCicloSerieTest extends TestCase
         $response->assertStatus(201);
 
         $fresh = $paciente->fresh();
-        $this->assertSame(2, $fresh->ciclo_actual);
-        $this->assertSame(3, $fresh->serie_actual);
-        $this->assertSame(5, $fresh->donacion_actual);
+        $this->assertSame(9, $fresh->ciclo_actual);
+        $this->assertSame(9, $fresh->serie_actual);
+        $this->assertSame(9, $fresh->donacion_actual);
     }
 }

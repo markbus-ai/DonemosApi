@@ -15,10 +15,10 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * Manual patient cycle counters (`ciclo_actual` / `serie_actual` /
+ * Patient cycle counters (`ciclo_actual` / `serie_actual` /
  * `donacion_actual`). The staff sets and resets them freely through
- * PATCH /api/pacientes/{dni}; they are independent from the donations history
- * and are never derived from or applied to any donation.
+ * PATCH /api/pacientes/{dni}; a manual PATCH never touches the donations
+ * history (it is the donation flow that re-syncs these counters).
  */
 class PacienteCicloSerieTest extends TestCase
 {

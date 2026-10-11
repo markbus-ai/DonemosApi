@@ -92,17 +92,19 @@ class DonacionService
             $sede = $this->resolveSede($data);
             $numero = NumeroDonacion::allocate($sede, (int) Carbon::parse($fecha)->year);
 
+            // Cycle position: an explicit override (all three fields) wins;
+            // otherwise the odometer advances from the patient's counters.
+            $ciclo = $this->resolveCyclePosition($paciente, $data);
+
             $donacion = Donacion::create([
                 'paciente_id' => $paciente->id,
                 'sede_id' => $sede->id,
                 'tipo_id' => $tipo->id,
                 'fecha' => $fecha,
                 'numero_donacion' => $numero,
-                // Staff-entered cycle metadata, persisted as-is; never inferred
-                // from the patient counters or the donation history.
-                'ciclo' => $data['ciclo'] ?? null,
-                'serie' => $data['serie'] ?? null,
-                'donacion' => $data['donacion'] ?? null,
+                'ciclo' => $ciclo['ciclo'],
+                'serie' => $ciclo['serie'],
+                'donacion' => $ciclo['donacion'],
                 'tipo_bolsa' => $data['tipo_bolsa'] ?? null,
                 'anticoagulante' => $data['anticoagulante'] ?? null,
                 'lote' => $data['lote'] ?? null,
@@ -119,6 +121,14 @@ class DonacionService
             if ($componentes !== null) {
                 $donacion->componentes()->createMany($componentes);
             }
+
+            // Re-sync the patient counters with the position just persisted, so
+            // the next computed donation continues from here.
+            $paciente->update([
+                'ciclo_actual' => $ciclo['ciclo'],
+                'serie_actual' => $ciclo['serie'],
+                'donacion_actual' => $ciclo['donacion'],
+            ]);
 
             return [
                 'donacion' => $donacion,
@@ -221,6 +231,49 @@ class DonacionService
             ?? DB::table('sedes')->orderBy('id')->value('id');
 
         return Sede::findOrFail($defaultId);
+    }
+
+    /**
+     * Resolve the donation's cycle position (ciclo / serie / donacion).
+     *
+     * An explicit override (all three fields sent, non-null) is respected as-is
+     * and re-syncs the patient counters. Otherwise the donor's odometer advances
+     * by one from the patient counters: donacion 1..N within the serie, serie
+     * 1..M within the ciclo, overflowing the serie opens the next ciclo. A donor
+     * with no counters yet starts at 1/1/1. Limits come from
+     * config('ciclo_donacion.*').
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{ciclo: int, serie: int, donacion: int}
+     */
+    private function resolveCyclePosition(Paciente $paciente, array $data): array
+    {
+        $ciclo = $data['ciclo'] ?? null;
+        $serie = $data['serie'] ?? null;
+        $donacion = $data['donacion'] ?? null;
+
+        if ($ciclo !== null && $serie !== null && $donacion !== null) {
+            return ['ciclo' => (int) $ciclo, 'serie' => (int) $serie, 'donacion' => (int) $donacion];
+        }
+
+        $maxDonaciones = (int) config('ciclo_donacion.donaciones_por_serie');
+        $maxSeries = (int) config('ciclo_donacion.series_por_ciclo');
+
+        $nextCiclo = $paciente->ciclo_actual ?? 1;
+        $nextSerie = $paciente->serie_actual ?? 1;
+        $nextDonacion = ($paciente->donacion_actual ?? 0) + 1;
+
+        if ($nextDonacion > $maxDonaciones) {
+            $nextDonacion = 1;
+            $nextSerie++;
+        }
+
+        if ($nextSerie > $maxSeries) {
+            $nextSerie = 1;
+            $nextCiclo++;
+        }
+
+        return ['ciclo' => $nextCiclo, 'serie' => $nextSerie, 'donacion' => $nextDonacion];
     }
 
     /**
