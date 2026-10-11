@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Donacion\StoreDonacionRequest;
+use App\Http\Resources\DonacionResource;
 use App\Services\DonacionService;
+use Illuminate\Http\Request;
 
 class DonacionController
 {
@@ -11,10 +13,16 @@ class DonacionController
         private DonacionService $donacionService
     ) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        // TODO: listado con filtros si se requiere. Por ahora retorna todo o por paciente.
-        return response()->json([]);
+        $donaciones = $this->donacionService->list(
+            $request->only(['paciente_id', 'desde', 'hasta', 'search', 'per_page'])
+        );
+
+        // Keep the repo's `response()->json(...)` style while preserving the
+        // pagination envelope (data/meta/links); JSON-encoding a resource
+        // collection directly drops the metadata.
+        return response()->json(DonacionResource::collection($donaciones)->response($request)->getData(true));
     }
 
     public function store(StoreDonacionRequest $request)

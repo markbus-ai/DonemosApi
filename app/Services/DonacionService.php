@@ -15,13 +15,17 @@ use App\Rules\DonationRules;
 use App\Support\ForcedAuthor;
 use App\Support\NumeroDonacion;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class DonacionService
 {
+    public const DEFAULT_PER_PAGE = 15;
+
+    public const MAX_PER_PAGE = 50;
+
     public function __construct(
         private DonationRules $donationRules,
         private ComponentRules $componentRules,
@@ -119,9 +123,41 @@ class DonacionService
         });
     }
 
-    public function list(int $pacienteId): Collection
+    /**
+     * Paginated, filterable donation list for the desktop app.
+     *
+     * Supported filters:
+     * - paciente_id: exact owner match.
+     * - desde / hasta: inclusive `fecha` bounds (YYYY-MM-DD).
+     * - search: matches `numero_donacion` (case-insensitive LIKE).
+     * - per_page: page size, default 15, capped at 50.
+     *
+     * Ordered by `fecha` desc then `id` desc. Relations are eager-loaded so the
+     * DonacionResource and the model's `descartada` / `presion_arterial`
+     * accessors never trigger a query per row.
+     */
+    public function list(array $filters = []): LengthAwarePaginator
     {
-        return Donacion::where('paciente_id', $pacienteId)->orderByDesc('fecha')->get();
+        return Donacion::query()
+            ->with(['paciente', 'sede', 'tipoDonacion', 'componentes.tipoDonacion', 'autoexclusion'])
+            ->when(filled($filters['paciente_id'] ?? null), fn ($query) => $query->where('paciente_id', $filters['paciente_id']))
+            ->when(filled($filters['desde'] ?? null), fn ($query) => $query->where('fecha', '>=', $filters['desde']))
+            ->when(filled($filters['hasta'] ?? null), fn ($query) => $query->where('fecha', '<=', $filters['hasta']))
+            ->when(filled($filters['search'] ?? null), function ($query) use ($filters) {
+                $query->where('numero_donacion', 'like', '%'.trim((string) $filters['search']).'%');
+            })
+            ->orderByDesc('fecha')
+            ->orderByDesc('id')
+            ->paginate($this->perPage($filters['per_page'] ?? null));
+    }
+
+    private function perPage(mixed $requested): int
+    {
+        if (! is_numeric($requested)) {
+            return self::DEFAULT_PER_PAGE;
+        }
+
+        return max(1, min((int) $requested, self::MAX_PER_PAGE));
     }
 
     /**
