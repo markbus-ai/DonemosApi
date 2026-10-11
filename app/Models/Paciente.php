@@ -23,10 +23,17 @@ class Paciente extends Model
         'altura',
         // aptitud_id: default APTO se asigna en Service/Observer, no en DB
         'aptitud_id',
+        // Manual cycle counters; set/reset by staff, never derived from donations.
+        'ciclo_actual',
+        'serie_actual',
+        'donacion_actual',
     ];
 
     protected $casts = [
         'altura' => 'decimal:1',
+        'ciclo_actual' => 'integer',
+        'serie_actual' => 'integer',
+        'donacion_actual' => 'integer',
     ];
 
     public function aptitud(): BelongsTo

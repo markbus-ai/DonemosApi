@@ -51,6 +51,11 @@ class StoreDonacionRequest extends FormRequest
             'componentes.*.vencimiento' => ['sometimes', 'nullable', 'date'],
             'componentes.*.peso' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'fecha' => ['sometimes', 'date'],
+            // Manual cycle metadata; optional and never inferred. `donacion` is
+            // the ordinal within the serie.
+            'ciclo' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'serie' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'donacion' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'forzar' => ['sometimes', 'boolean'],
             // operador_id is never accepted from the client; it comes from auth.
             'tipo_bolsa' => ['sometimes', 'nullable', Rule::in(self::TIPOS_BOLSA)],

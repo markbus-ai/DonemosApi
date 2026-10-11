@@ -18,6 +18,11 @@ class DonacionResource extends JsonResource
         return [
             'id' => $this->id,
             'numero_donacion' => $this->numero_donacion,
+            // Staff-entered cycle metadata; `donacion` is the ordinal within
+            // the serie, not the traceability code.
+            'ciclo' => $this->ciclo,
+            'serie' => $this->serie,
+            'donacion' => $this->donacion,
             'fecha' => $this->fecha,
             'tipo_bolsa' => $this->tipo_bolsa,
             'anticoagulante' => $this->anticoagulante,

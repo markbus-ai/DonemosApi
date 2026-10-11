@@ -20,6 +20,11 @@ class Donacion extends Model
         'tipo_id',
         'fecha',
         'numero_donacion',
+        // Manual cycle metadata. `donacion` is the ordinal within the serie
+        // (distinct from `numero_donacion`, the traceability code).
+        'ciclo',
+        'serie',
+        'donacion',
         'tipo_bolsa',
         'anticoagulante',
         'lote',
@@ -38,6 +43,9 @@ class Donacion extends Model
     ];
 
     protected $casts = [
+        'ciclo' => 'integer',
+        'serie' => 'integer',
+        'donacion' => 'integer',
         'doble_etiqueta' => 'boolean',
         'hemoglobina' => 'decimal:2',
         'hematocrito' => 'decimal:2',

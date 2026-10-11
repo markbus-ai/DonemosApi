@@ -98,6 +98,11 @@ class DonacionService
                 'tipo_id' => $tipo->id,
                 'fecha' => $fecha,
                 'numero_donacion' => $numero,
+                // Staff-entered cycle metadata, persisted as-is; never inferred
+                // from the patient counters or the donation history.
+                'ciclo' => $data['ciclo'] ?? null,
+                'serie' => $data['serie'] ?? null,
+                'donacion' => $data['donacion'] ?? null,
                 'tipo_bolsa' => $data['tipo_bolsa'] ?? null,
                 'anticoagulante' => $data['anticoagulante'] ?? null,
                 'lote' => $data['lote'] ?? null,

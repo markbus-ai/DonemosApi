@@ -22,6 +22,10 @@ class PacienteResource extends JsonResource
             'telefono' => $this->telefono,
             'sexo' => $this->sexo,
             'altura' => $this->altura,
+            // Manual cycle counters; never derived from the donation history.
+            'ciclo_actual' => $this->ciclo_actual,
+            'serie_actual' => $this->serie_actual,
+            'donacion_actual' => $this->donacion_actual,
             'aptitud' => $this->whenLoaded('aptitud', fn () => $this->aptitud === null ? null : [
                 'id' => $this->aptitud->id,
                 'tipo' => $this->aptitud->tipo,

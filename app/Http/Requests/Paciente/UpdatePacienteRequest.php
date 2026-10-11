@@ -19,6 +19,10 @@ class UpdatePacienteRequest extends FormRequest
             'telefono' => ['sometimes', 'string', 'max:20'],
             'sexo' => ['sometimes', 'nullable', 'string', 'in:M,F'],
             'altura' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:250'],
+            // Manual cycle counters; staff sets or resets them freely.
+            'ciclo_actual' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'serie_actual' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'donacion_actual' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ];
     }
 }
