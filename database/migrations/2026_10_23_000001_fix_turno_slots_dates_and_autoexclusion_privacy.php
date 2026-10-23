@@ -24,10 +24,22 @@ return new class extends Migration
 
     public function up(): void
     {
-        DB::table('turnos')->update([
-            'fecha' => DB::raw('substr(fecha, 1, 10)'),
-            'hora' => DB::raw('substr(hora, 1, 5)'),
-        ]);
+        // Only SQLite stores these as text; MySQL/Postgres have real
+        // date/time types (and Postgres has no substr(date, ...)).
+        if (DB::getDriverName() === 'sqlite') {
+            DB::table('turnos')->update([
+                'fecha' => DB::raw('substr(fecha, 1, 10)'),
+                'hora' => DB::raw('substr(hora, 1, 5)'),
+            ]);
+        }
+
+        // Create the replacement indexes first: MySQL refuses to drop an index
+        // a foreign key depends on (error 1553) unless another one serves it.
+        Schema::table('turnos', function (Blueprint $table) {
+            // Capacity sums and the report filter by sede, day and state.
+            $table->index(['sede_id', 'fecha', 'estado']);
+            $table->index(['paciente_id', 'fecha']);
+        });
 
         Schema::table('turnos', function (Blueprint $table) {
             $table->dropUnique(['sede_id', 'fecha', 'hora']);
@@ -55,11 +67,6 @@ return new class extends Migration
             }
         }
 
-        Schema::table('turnos', function (Blueprint $table) {
-            // Capacity sums and the report filter by sede, day and state.
-            $table->index(['sede_id', 'fecha', 'estado']);
-        });
-
         Schema::table('autoexclusiones', function (Blueprint $table) {
             $table->text('motivo')->nullable()->change();
         });
@@ -75,10 +82,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('turnos', function (Blueprint $table) {
-            $table->dropIndex(['sede_id', 'fecha', 'estado']);
-        });
-
         if (DB::getDriverName() === 'mysql') {
             Schema::table('turnos', function (Blueprint $table) {
                 foreach (array_keys(self::SLOTS) as $name) {
@@ -96,6 +99,11 @@ return new class extends Migration
             $table->index(['sede_id', 'fecha', 'hora']);
             $table->unique(['sede_id', 'fecha', 'hora']);
             $table->unique(['paciente_id', 'fecha', 'hora']);
+        });
+
+        Schema::table('turnos', function (Blueprint $table) {
+            $table->dropIndex(['sede_id', 'fecha', 'estado']);
+            $table->dropIndex(['paciente_id', 'fecha']);
         });
 
         // Encrypted motivos and neutral discard codes are kept: decrypting on

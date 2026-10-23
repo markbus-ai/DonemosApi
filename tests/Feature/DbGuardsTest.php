@@ -107,6 +107,15 @@ class DbGuardsTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors('hasta');
     }
 
+    public function test_same_day_observation_is_still_allowed_via_aptitud(): void
+    {
+        Aptitud::firstOrCreate(['tipo' => 'APTO_OBSERVACION']);
+
+        $this->patchJson("/api/pacientes/{$this->paciente->dni}/aptitud", [
+            'tipo' => 'APTO_OBSERVACION', 'motivo_id' => $this->motivo->id, 'desde' => '2026-10-22', 'hasta' => '2026-10-22',
+        ])->assertOk();
+    }
+
     public function test_api_bounds_match_column_precision(): void
     {
         $tipo = TipoDonacion::firstOrCreate(['codigo' => 'SANGRE'], ['nombre' => 'SANGRE']);
