@@ -146,6 +146,7 @@ class ClinicalSignsTest extends TestCase
             'fecha' => self::FECHA,
             'hemoglobina' => 11.0,
             'forzar' => true,
+            'motivo' => 'Autorizado por el médico',
         ]);
 
         $response->assertStatus(201);
@@ -158,7 +159,7 @@ class ClinicalSignsTest extends TestCase
 
         // The authorization motivo is derived from the clinical warning code.
         $autorizacion = AutorizacionExtraordinaria::firstOrFail();
-        $this->assertSame('Hemoglobina baja', $autorizacion->motivo);
+        $this->assertSame('Hemoglobina baja — Autorizado por el médico', $autorizacion->motivo);
     }
 
     public function test_low_weight_without_override_returns_409_with_peso_bajo(): void
@@ -185,6 +186,7 @@ class ClinicalSignsTest extends TestCase
             'fecha' => self::FECHA,
             'peso_donante' => 48,
             'forzar' => true,
+            'motivo' => 'Autorizado por el médico',
         ]);
 
         $response->assertStatus(201);
@@ -202,6 +204,7 @@ class ClinicalSignsTest extends TestCase
             'presion_sistolica' => 80,
             'presion_diastolica' => 120,
             'forzar' => true,
+            'motivo' => 'Autorizado por el médico',
         ]));
 
         $response->assertStatus(422);
@@ -242,6 +245,7 @@ class ClinicalSignsTest extends TestCase
             'fecha' => self::FECHA,
             'hematocrito' => 40.5,
             'forzar' => true,
+            'motivo' => 'Autorizado por el médico',
         ]);
 
         $response->assertStatus(422);
@@ -261,6 +265,7 @@ class ClinicalSignsTest extends TestCase
             'fecha' => self::FECHA,
             'plaquetas' => 250000,
             'forzar' => true,
+            'motivo' => 'Autorizado por el médico',
         ]);
 
         $response->assertStatus(422);

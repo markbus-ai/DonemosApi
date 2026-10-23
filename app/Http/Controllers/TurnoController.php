@@ -20,9 +20,10 @@ class TurnoController
         $request->validate([
             'paciente_id' => ['nullable', 'integer'],
             'fecha' => ['nullable', 'date_format:Y-m-d'],
+            'desde' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
-        $turnos = $this->turnoService->list($request->only(['paciente_id', 'fecha']));
+        $turnos = $this->turnoService->list($request->only(['paciente_id', 'fecha', 'desde']));
 
         return response()->json(TurnoResource::collection($turnos));
     }

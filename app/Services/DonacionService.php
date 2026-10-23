@@ -9,6 +9,7 @@ use App\Models\HabilitacionPlaqueta;
 use App\Models\Paciente;
 use App\Models\Sede;
 use App\Models\TipoDonacion;
+use App\Models\Turno;
 use App\Rules\ClinicalSignRules;
 use App\Rules\ComponentRules;
 use App\Rules\DonationRules;
@@ -76,8 +77,8 @@ class DonacionService
         // Si hay warnings y se fuerza, crear autorización + donación en transacción
         return DB::transaction(function () use ($paciente, $tipo, $fecha, $warnings, $allowed, $data, $componentes, $signs) {
             if (! $allowed && ! empty($data['forzar'])) {
-                // Motivo autogenerado a partir del code, no viene del cliente
-                $motivo = $this->buildMotivo($warnings);
+                // Rule codes plus the operator's justification.
+                $motivo = trim($this->buildMotivo($warnings).' — '.($data['motivo'] ?? ''), ' —');
 
                 // Fail-closed: only the authenticated staff operator can authorize.
                 $usuarioId = ForcedAuthor::idOrFail();
@@ -122,6 +123,13 @@ class DonacionService
             if ($componentes !== null) {
                 $donacion->componentes()->createMany($componentes);
             }
+
+            // The donation attends the donor's pending turno of that day here.
+            Turno::where('paciente_id', $paciente->id)
+                ->where('sede_id', $sede->id)
+                ->whereDate('fecha', $fecha)
+                ->where('estado', 'PENDIENTE')
+                ->update(['estado' => 'ATENDIDO']);
 
             // Re-sync the patient counters with the position just persisted, so
             // the next computed donation continues from here.

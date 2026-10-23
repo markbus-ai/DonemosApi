@@ -15,6 +15,8 @@ class UsuarioResource extends JsonResource
             'rol_id' => $this->rol_id,
             'rol' => $this->rol?->nombre,
             'sede_id' => $this->sede_id,
+            'sede' => $this->sede?->nombre,
+            'zona' => $this->zona?->nombre,
             'zona_id' => $this->zona_id,
             'puede_ver_reportes' => $this->puedeVerReportes(),
         ];

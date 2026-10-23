@@ -294,6 +294,7 @@ class PlateletEnableTest extends TestCase
             'plaquetas' => 250000,
             'hematocrito' => 40.5,
             'forzar' => true,
+            'motivo' => 'Autorizado por el médico',
         ]);
 
         $response->assertStatus(201);
@@ -305,7 +306,7 @@ class PlateletEnableTest extends TestCase
         ]);
 
         // The audited motivo reflects the platelet gate code.
-        $this->assertSame('Plaquetas no habilitadas', AutorizacionExtraordinaria::firstOrFail()->motivo);
+        $this->assertSame('Plaquetas no habilitadas — Autorizado por el médico', AutorizacionExtraordinaria::firstOrFail()->motivo);
     }
 
     public function test_non_apheresis_donation_is_unaffected_by_the_platelet_gate(): void
@@ -361,6 +362,7 @@ class PlateletEnableTest extends TestCase
             'componentes' => [$tipo->id],
             'fecha' => self::FECHA,
             'forzar' => true,
+            'motivo' => 'Autorizado por el médico',
         ])->assertStatus(401);
 
         $this->assertDatabaseCount('donaciones', 0);

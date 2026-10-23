@@ -60,6 +60,8 @@ class StoreDonacionRequest extends FormRequest
             'serie' => ['nullable', 'integer', 'min:1', 'max:'.config('ciclo_donacion.series_por_ciclo'), 'required_with:ciclo,donacion'],
             'donacion' => ['nullable', 'integer', 'min:1', 'max:'.config('ciclo_donacion.donaciones_por_serie'), 'required_with:ciclo,serie'],
             'forzar' => ['sometimes', 'boolean'],
+            // Forcing past clinical warnings is audited with the operator's reason.
+            'motivo' => ['nullable', 'string', 'min:5', 'max:500', Rule::requiredIf(fn () => $this->boolean('forzar'))],
             // operador_id is never accepted from the client; it comes from auth.
             'tipo_bolsa' => ['sometimes', 'nullable', Rule::in(self::TIPOS_BOLSA)],
             'anticoagulante' => ['sometimes', 'nullable', 'string', 'max:255'],
