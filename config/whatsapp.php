@@ -25,6 +25,17 @@ return [
         'timeout' => (int) env('WHATSPLAY_TIMEOUT', 180),
     ],
 
+    // Seconds to wait before a batch starts, so messages created close
+    // together share one browser cold start; and the batch size cap.
+    'lote_espera' => (int) env('WHATSAPP_LOTE_ESPERA', 60),
+    'lote_maximo' => (int) env('WHATSAPP_LOTE_MAXIMO', 50),
+
+    // Private directory where the linking bridge writes its state and QR.
+    'estado_dir' => storage_path('app/private/whatsapp'),
+
+    // Seconds the linking QR stays valid before the bridge gives up.
+    'vinculacion_timeout' => (int) env('WHATSAPP_VINCULACION_TIMEOUT', 180),
+
     // Daily reminder for the next day's pending turnos (hemocentro local time).
     'recordatorio_hora' => env('WHATSAPP_RECORDATORIO_HORA', '18:00'),
 ];

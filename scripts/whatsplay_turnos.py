@@ -5,15 +5,16 @@ WhatsPlay bridge for the Donemos API (whatsplay-automation skill).
 Modes:
   vincular  Start WhatsApp Web headless, write the login QR (base64 PNG) and
             the state to --estado-dir so the API can show it in the app.
-  enviar    Send one text message to --to (549... number) and print
-            "RESULTADO OK" or "RESULTADO ERROR <reason>".
+  lote      Send every message in --input (JSON list of {id, to, message})
+            in ONE WhatsApp Web session (one browser cold start per batch)
+            and print "RESULTADOS {"<id>": null | "<error>"}".
 
 WhatsPlay's built-in QR web server binds 0.0.0.0:8000. It is disabled here:
 it collides with the API port and would let anyone on the network grab the
 QR and take over the hemocentro's WhatsApp session.
 
 Run with the skill's environment, e.g.:
-  uv run --project ~/proyectos/personal/whatsapp-skill python scripts/whatsplay_turnos.py enviar ...
+  uv run --project ~/proyectos/personal/whatsapp-skill python scripts/whatsplay_turnos.py lote --input mensajes.json ...
 """
 import argparse
 import asyncio
@@ -82,54 +83,59 @@ async def vincular(args) -> int:
     return 0
 
 
-async def enviar(args) -> int:
+async def lote(args) -> int:
+    mensajes = json.loads(Path(args.input).read_text())
+    resultados = {str(m["id"]): "WhatsApp no inició sesión" for m in mensajes}
     client = Client(auth=LocalProfileAuth(data_dir=args.session), headless=True)
-    result = {"ok": False, "error": "WhatsApp no inició sesión"}
 
     @client.event("on_logged_in")
     async def on_logged_in():
-        try:
-            # Phone numbers need open_via_url=True (skill gotcha).
-            ok = await client.send_message(args.to, args.message, open_via_url=True)
-            result.update(ok=bool(ok), error=None if ok else "send_message devolvió False")
-            # Wait for the server tick before closing (skill gotcha).
-            await asyncio.sleep(8)
-        except Exception as e:  # noqa: BLE001 - report any failure to the API
-            result.update(ok=False, error=str(e))
+        for m in mensajes:
+            try:
+                # Phone numbers need open_via_url=True (skill gotcha).
+                ok = await client.send_message(m["to"], m["message"], open_via_url=True)
+                resultados[str(m["id"])] = None if ok else "send_message devolvió False"
+            except Exception as e:  # noqa: BLE001 - report per message, keep going
+                resultados[str(m["id"])] = str(e)
+            await asyncio.sleep(2)
+        # Wait for the server ticks before closing (skill gotcha).
+        await asyncio.sleep(8)
         await client.stop()
 
     @client.event("on_qr")
     async def on_qr(_qr):
-        result.update(ok=False, error="La sesión de WhatsApp no está vinculada; vinculala desde la app.")
+        for key in resultados:
+            resultados[key] = "La sesión de WhatsApp no está vinculada; vincúlela desde la app."
         await client.stop()
 
     @client.event("on_error")
     async def on_error(error):
-        result.update(ok=False, error=str(error))
+        for key, value in resultados.items():
+            if value is not None:
+                resultados[key] = str(error)
         await client.stop()
 
     await client.start()
-    print("RESULTADO OK" if result["ok"] else f"RESULTADO ERROR {result['error']}", flush=True)
-    return 0 if result["ok"] else 1
+    print("RESULTADOS " + json.dumps(resultados), flush=True)
+    return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("modo", choices=["vincular", "enviar"])
+    parser.add_argument("modo", choices=["vincular", "lote"])
     parser.add_argument("--session", required=True)
     parser.add_argument("--estado-dir")
     parser.add_argument("--timeout", type=int, default=180)
-    parser.add_argument("--to")
-    parser.add_argument("--message")
+    parser.add_argument("--input")
     args = parser.parse_args()
 
     if args.modo == "vincular":
         if not args.estado_dir:
             parser.error("vincular necesita --estado-dir")
         return asyncio.run(vincular(args))
-    if not (args.to and args.message):
-        parser.error("enviar necesita --to y --message")
-    return asyncio.run(enviar(args))
+    if not args.input:
+        parser.error("lote necesita --input")
+    return asyncio.run(lote(args))
 
 
 if __name__ == "__main__":

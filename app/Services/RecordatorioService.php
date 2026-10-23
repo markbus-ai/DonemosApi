@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Jobs\EnviarRecordatorioWhatsApp;
+use App\Jobs\EnviarLoteWhatsApp;
 use App\Models\RecordatorioTurno;
 use App\Models\Turno;
 use App\Support\Hoy;
@@ -15,7 +15,7 @@ use Illuminate\Validation\ValidationException;
  * Pre-donation reminder service.
  *
  * The reminder text is rendered from config and snapshotted into `contenido`
- * at scheduling time. Delivery is a queued no-op (see EnviarRecordatorioWhatsApp);
+ * at scheduling time. Delivery is batched (see EnviarLoteWhatsApp);
  * this service only records and dispatches. Estado transitions advance the row
  * and bump `intento` on failure.
  */
@@ -59,8 +59,8 @@ class RecordatorioService
                 'intento' => 1,
             ]);
 
-            // Never send for a booking that is rolled back.
-            EnviarRecordatorioWhatsApp::dispatch($record->id)->afterCommit();
+            // Batched send; never for a booking that is rolled back.
+            EnviarLoteWhatsApp::programar();
 
             return $record;
         });

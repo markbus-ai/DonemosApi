@@ -2,28 +2,50 @@
 
 namespace App\Services\Whatsapp;
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 
 /**
  * Sends through WhatsPlay (whatsplay-automation skill) using the bridge in
  * scripts/whatsplay_turnos.py, run with the skill's uv environment and its
- * only working session. The bridge prints "RESULTADO OK" on success.
+ * only working session. A whole batch shares one browser cold start; the
+ * bridge prints "RESULTADOS {id: null|error}".
  */
 class WhatsPlaySender implements WhatsappSender
 {
-    public function send(string $numero, string $mensaje): ?string
+    public function sendLote(array $mensajes): array
     {
-        $result = Process::path(config('whatsapp.whatsplay.dir'))
-            ->timeout(config('whatsapp.whatsplay.timeout'))
-            ->run(self::command('enviar', ['--to', $numero, '--message', $mensaje]));
-
-        if ($result->successful() && str_contains($result->output(), 'RESULTADO OK')) {
-            return null;
+        if ($mensajes === []) {
+            return [];
         }
 
-        $detalle = trim($result->output()) ?: trim($result->errorOutput());
+        $input = tempnam(sys_get_temp_dir(), 'whatsplay_');
+        File::put($input, json_encode(array_map(
+            fn ($id, $m) => ['id' => $id, 'to' => $m['numero'], 'message' => $m['mensaje']],
+            array_keys($mensajes),
+            $mensajes,
+        )));
 
-        return 'WhatsPlay no confirmó el envío: '.mb_substr($detalle, -500);
+        try {
+            $result = Process::path(config('whatsapp.whatsplay.dir'))
+                // Start-up plus a few seconds per message.
+                ->timeout(config('whatsapp.whatsplay.timeout') + 15 * count($mensajes))
+                ->run(self::command('lote', ['--input', $input]));
+        } finally {
+            File::delete($input);
+        }
+
+        $resultados = preg_match('/^RESULTADOS (.+)$/m', $result->output(), $m) ? json_decode($m[1], true) : null;
+        $fallo = 'WhatsPlay no informó el resultado: '.mb_substr(trim($result->errorOutput() ?: $result->output()), -300);
+
+        $salida = [];
+        foreach (array_keys($mensajes) as $id) {
+            $salida[$id] = is_array($resultados) && array_key_exists((string) $id, $resultados)
+                ? $resultados[(string) $id]
+                : $fallo;
+        }
+
+        return $salida;
     }
 
     /**

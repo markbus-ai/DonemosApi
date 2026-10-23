@@ -5,14 +5,16 @@ namespace App\Services\Whatsapp;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Default driver: writes the message to the log instead of sending it.
+ * Default driver: writes the messages to the log instead of sending them.
  */
 class LogWhatsappSender implements WhatsappSender
 {
-    public function send(string $numero, string $mensaje): ?string
+    public function sendLote(array $mensajes): array
     {
-        Log::info('WhatsApp (driver log, no enviado)', ['numero' => $numero, 'mensaje' => $mensaje]);
+        foreach ($mensajes as $id => $mensaje) {
+            Log::info('WhatsApp (driver log, no enviado)', ['id' => $id, ...$mensaje]);
+        }
 
-        return null;
+        return array_fill_keys(array_keys($mensajes), null);
     }
 }

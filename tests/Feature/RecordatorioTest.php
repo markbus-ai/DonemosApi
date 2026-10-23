@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\EnviarRecordatorioWhatsApp;
+use App\Jobs\EnviarLoteWhatsApp;
 use App\Models\Aptitud;
 use App\Models\Paciente;
 use App\Models\RecordatorioTurno;
@@ -98,7 +98,7 @@ class RecordatorioTest extends TestCase
         $this->assertSame(1, $record->intento);
         $this->assertSame($turno->id, $record->turno_id);
 
-        Queue::assertPushed(EnviarRecordatorioWhatsApp::class);
+        Queue::assertPushed(EnviarLoteWhatsApp::class);
     }
 
     public function test_index_lists_records_for_a_turno(): void

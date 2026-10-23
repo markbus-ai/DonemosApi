@@ -5,7 +5,10 @@ namespace App\Services\Whatsapp;
 interface WhatsappSender
 {
     /**
-     * Send one text message. Returns null on success or the failure reason.
+     * Send a batch of text messages in one go (one WhatsApp Web start-up).
+     *
+     * @param  array<int, array{numero: string, mensaje: string}>  $mensajes  keyed by message id
+     * @return array<int, ?string> failure reason per id, null when sent
      */
-    public function send(string $numero, string $mensaje): ?string;
+    public function sendLote(array $mensajes): array;
 }

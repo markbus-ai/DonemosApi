@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\EnviarRecordatorioWhatsApp;
+use App\Jobs\EnviarLoteWhatsApp;
 use App\Models\Aptitud;
 use App\Models\Paciente;
 use App\Models\RecordatorioTurno;
@@ -14,6 +14,7 @@ use App\Services\RecordatorioService;
 use App\Services\Whatsapp\WhatsappSender;
 use App\Support\TelefonoAR;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Process;
@@ -68,6 +69,35 @@ class WhatsappTurnosTest extends TestCase
         return $turno->recordatorios()->create(['canal' => 'WHATSAPP', 'tipo' => $tipo, 'estado' => 'PENDIENTE', 'contenido' => 'Hola Ana', 'intento' => 1]);
     }
 
+    private function enviarLote(): void
+    {
+        (new EnviarLoteWhatsApp)->handle(app(WhatsappSender::class), app(RecordatorioService::class));
+    }
+
+    public function test_many_messages_share_one_browser_start(): void
+    {
+        config(['whatsapp.driver' => 'whatsplay', 'whatsapp.numero_prueba' => '5492234480402']);
+        $records = collect(range(1, 3))->map(fn ($i) => $this->recordatorio(Turno::create(['paciente_id' => $this->paciente()->id, 'sede_id' => $this->sede->id, 'fecha' => '2026-10-23', 'hora' => sprintf('%02d:00', 8 + $i), 'estado' => 'PENDIENTE'])));
+        Process::fake(['*' => fn () => Process::result(output: 'RESULTADOS '.json_encode($records->mapWithKeys(fn ($r) => [(string) $r->id => null])->all())."\n")]);
+
+        $this->enviarLote();
+
+        Process::assertRanTimes(fn () => true, 1);
+        $this->assertSame(['ENVIADO'], RecordatorioTurno::pluck('estado')->unique()->values()->all());
+    }
+
+    public function test_the_batch_job_is_unique_and_delayed(): void
+    {
+        Queue::fake();
+        $turno = $this->turno();
+
+        app(RecordatorioService::class)->create($turno, 'RECORDATORIO');
+        app(RecordatorioService::class)->create($turno, 'CONFIRMACION');
+
+        Queue::assertPushed(EnviarLoteWhatsApp::class, fn ($job) => $job->delay !== null);
+        $this->assertInstanceOf(ShouldBeUniqueUntilProcessing::class, new EnviarLoteWhatsApp);
+    }
+
     public function test_argentine_phones_are_normalised_for_whatsapp(): void
     {
         $this->assertSame('5492254123456', TelefonoAR::paraWhatsapp('+54 9 2254 123456'));
@@ -86,7 +116,7 @@ class WhatsappTurnosTest extends TestCase
         $this->postJson('/api/turnos', ['paciente_id' => $this->paciente()->id, 'fecha' => '2026-11-02', 'hora' => '09:00'])->assertCreated();
 
         $this->assertSame(['CONFIRMACION'], RecordatorioTurno::pluck('tipo')->all());
-        Queue::assertPushed(EnviarRecordatorioWhatsApp::class);
+        Queue::assertPushed(EnviarLoteWhatsApp::class);
     }
 
     public function test_cancelling_a_turno_queues_a_cancellation_notice(): void
@@ -125,7 +155,7 @@ class WhatsappTurnosTest extends TestCase
         Process::fake();
         $record = $this->recordatorio($this->turno());
 
-        (new EnviarRecordatorioWhatsApp($record->id))->handle(app(WhatsappSender::class), app(RecordatorioService::class));
+        $this->enviarLote();
 
         $record->refresh();
         $this->assertSame('ENVIADO', $record->estado);
@@ -136,17 +166,21 @@ class WhatsappTurnosTest extends TestCase
     public function test_whatsplay_driver_redirects_to_the_test_number_outside_production(): void
     {
         config(['whatsapp.driver' => 'whatsplay', 'whatsapp.numero_prueba' => '5492234480402', 'whatsapp.whatsplay.dir' => '/opt/whatsapp-skill']);
-        Process::fake(['*' => Process::result(output: "RESULTADO OK\n")]);
         $record = $this->recordatorio($this->turno());
+        $enviado = null;
+        Process::fake(['*' => function ($process) use ($record, &$enviado) {
+            $enviado = json_decode(file_get_contents($process->command[array_search('--input', $process->command, true) + 1]), true);
 
-        (new EnviarRecordatorioWhatsApp($record->id))->handle(app(WhatsappSender::class), app(RecordatorioService::class));
+            return Process::result(output: 'RESULTADOS '.json_encode([(string) $record->id => null])."\n");
+        }]);
+
+        $this->enviarLote();
 
         $record->refresh();
         $this->assertSame('ENVIADO', $record->estado);
         $this->assertSame('5492234480402', $record->destino);
-        Process::assertRan(fn ($process) => in_array('--to', $process->command, true)
-            && in_array('5492234480402', $process->command, true)
-            && in_array('enviar', $process->command, true)
+        $this->assertSame([['id' => $record->id, 'to' => '5492234480402', 'message' => 'Hola Ana']], $enviado);
+        Process::assertRan(fn ($process) => in_array('lote', $process->command, true)
             && $process->path === '/opt/whatsapp-skill');
     }
 
@@ -156,7 +190,7 @@ class WhatsappTurnosTest extends TestCase
         Process::fake();
         $record = $this->recordatorio($this->turno());
 
-        (new EnviarRecordatorioWhatsApp($record->id))->handle(app(WhatsappSender::class), app(RecordatorioService::class));
+        $this->enviarLote();
 
         $this->assertSame('FALLIDO', $record->fresh()->estado);
         $this->assertStringContainsString('WHATSAPP_NUMERO_PRUEBA', $record->fresh()->error);
@@ -166,10 +200,10 @@ class WhatsappTurnosTest extends TestCase
     public function test_a_failed_send_is_recorded_with_its_reason(): void
     {
         config(['whatsapp.driver' => 'whatsplay', 'whatsapp.numero_prueba' => '5492234480402']);
-        Process::fake(['*' => Process::result(output: "RESULTADO ERROR send_message devolvió False\n", exitCode: 1)]);
         $record = $this->recordatorio($this->turno());
+        Process::fake(['*' => fn ($process) => Process::result(output: 'RESULTADOS '.json_encode([(string) $record->id => 'send_message devolvió False'])."\n")]);
 
-        (new EnviarRecordatorioWhatsApp($record->id))->handle(app(WhatsappSender::class), app(RecordatorioService::class));
+        $this->enviarLote();
 
         $record->refresh();
         $this->assertSame('FALLIDO', $record->estado);
@@ -182,7 +216,7 @@ class WhatsappTurnosTest extends TestCase
         Process::fake();
         $record = $this->recordatorio($this->turno('2026-10-23', $this->paciente('123')));
 
-        (new EnviarRecordatorioWhatsApp($record->id))->handle(app(WhatsappSender::class), app(RecordatorioService::class));
+        $this->enviarLote();
 
         $this->assertSame('FALLIDO', $record->fresh()->estado);
         $this->assertStringContainsString('Teléfono', $record->fresh()->error);
