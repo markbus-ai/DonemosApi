@@ -2,6 +2,8 @@
 
 namespace App\Rules;
 
+use App\Enums\WarningCode;
+use App\Enums\TurnoEstado;
 use App\Models\TipoDonacion;
 use App\Models\Turno;
 use Illuminate\Support\Facades\Schema;
@@ -52,7 +54,7 @@ class CapacidadRules
             'limite' => $this->minutosPorDia,
             'candidate' => $candidate,
             'available' => max(0, $this->minutosPorDia - $used),
-            'code' => $allowed ? null : 'CAPACIDAD_EXCEDIDA',
+            'code' => $allowed ? null : WarningCode::CapacidadExcedida->value,
         ];
     }
 
@@ -82,7 +84,7 @@ class CapacidadRules
             ->where('sede_id', $sedeId)
             ->where('fecha', $fecha)
             // A cancelled turno frees its minutes.
-            ->where('estado', '!=', 'CANCELADO')
+            ->where('estado', '!=', TurnoEstado::Cancelado->value)
             ->when($this->hasTipoIdColumn(), fn ($q) => $q->with('tipoDonacion'))
             ->get();
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RolNombre;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,9 +13,10 @@ class Usuario extends Authenticatable
 {
     use HasApiTokens, HasFactory;
 
-    public const ROL_ADMIN_SEDE = 'admin-sede';
+    /** Aliases of RolNombre values, kept for seeders and tests. */
+    public const ROL_ADMIN_SEDE = RolNombre::AdminSede->value;
 
-    public const ROL_ADMIN_ZONA = 'admin-zona';
+    public const ROL_ADMIN_ZONA = RolNombre::AdminZona->value;
 
     protected $table = 'usuarios';
 
@@ -56,7 +58,7 @@ class Usuario extends Authenticatable
 
     public function puedeVerReportes(): bool
     {
-        return in_array($this->rol?->nombre, [self::ROL_ADMIN_SEDE, self::ROL_ADMIN_ZONA], true);
+        return $this->rolNombre()?->esAdmin() ?? false;
     }
 
     /**
@@ -67,13 +69,19 @@ class Usuario extends Authenticatable
      */
     public function sedesVisiblesIds(): array
     {
-        return match ($this->rol?->nombre) {
-            self::ROL_ADMIN_SEDE => $this->sede_id === null ? [] : [$this->sede_id],
-            self::ROL_ADMIN_ZONA => $this->zona_id === null
+        return match ($this->rolNombre()) {
+            RolNombre::AdminSede => $this->sede_id === null ? [] : [$this->sede_id],
+            RolNombre::AdminZona => $this->zona_id === null
                 ? []
                 : Sede::where('zona_id', $this->zona_id)->pluck('id')->map(fn ($id) => (int) $id)->all(),
             default => [],
         };
+    }
+
+    /** Known role of this user; null for a role name outside RolNombre. */
+    public function rolNombre(): ?RolNombre
+    {
+        return RolNombre::tryFrom((string) $this->rol?->nombre);
     }
 
     public function autorizacionesExtraordinarias(): HasMany

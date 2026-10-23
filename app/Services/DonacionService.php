@@ -3,21 +3,20 @@
 namespace App\Services;
 
 use App\Enums\WarningCode;
+use App\Enums\TurnoEstado;
 use App\Models\Autoexclusion;
-use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
 use App\Models\HabilitacionPlaqueta;
 use App\Models\Paciente;
-use App\Models\Sede;
 use App\Models\TipoDonacion;
 use App\Models\Turno;
 use App\Rules\ClinicalSignRules;
 use App\Rules\ComponentRules;
 use App\Rules\DonationRules;
-use App\Support\ForcedAuthor;
 use App\Support\Hoy;
 use App\Support\NumeroDonacion;
 use App\Support\RowLock;
+use App\Support\SedeOperativa;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -35,7 +34,8 @@ class DonacionService
     public function __construct(
         private DonationRules $donationRules,
         private ComponentRules $componentRules,
-        private ClinicalSignRules $clinicalSignRules
+        private ClinicalSignRules $clinicalSignRules,
+        private AutorizacionExtraordinariaService $autorizaciones
     ) {}
 
     /**
@@ -84,19 +84,10 @@ class DonacionService
             }
 
             if ($warnings !== []) {
-                // Rule codes plus the operator's justification.
-                $motivo = trim(WarningCode::describir($warnings).' — '.($data['motivo'] ?? ''), ' —');
-
-                AutorizacionExtraordinaria::create([
-                    'paciente_id' => $paciente->id,
-                    // Fail-closed: only the authenticated staff operator can authorize.
-                    'usuario_id' => ForcedAuthor::idOrFail(),
-                    'motivo' => $motivo,
-                    'fecha' => now(),
-                ]);
+                $this->autorizaciones->registrar($paciente->id, $warnings, $data['motivo'] ?? null);
             }
 
-            $sede = $this->resolveSede($data);
+            $sede = SedeOperativa::resolver($data);
             $numero = NumeroDonacion::allocate($sede, (int) Carbon::parse($fecha)->year);
 
             // Cycle position: an explicit override (all three fields) wins;
@@ -133,8 +124,8 @@ class DonacionService
             Turno::where('paciente_id', $paciente->id)
                 ->where('sede_id', $sede->id)
                 ->where('fecha', $fecha)
-                ->where('estado', 'PENDIENTE')
-                ->update(['estado' => 'ATENDIDO']);
+                ->where('estado', TurnoEstado::Pendiente->value)
+                ->update(['estado' => TurnoEstado::Atendido->value]);
 
             // Re-sync the patient counters with the position just persisted, so
             // the next computed donation continues from here.
@@ -225,25 +216,6 @@ class DonacionService
                 'autoexclusion' => ['La donación ya tiene una autoexclusión registrada.'],
             ]);
         }
-    }
-
-    /**
-     * Resolve the donation's sede: explicit payload, then the operator's home
-     * sede, then the database default (Sede Central).
-     */
-    private function resolveSede(array $data): Sede
-    {
-        if (! empty($data['sede_id'])) {
-            return Sede::findOrFail($data['sede_id']);
-        }
-
-        $staffSedeId = auth('staff')->user()?->sede_id;
-
-        if ($staffSedeId !== null) {
-            return Sede::findOrFail($staffSedeId);
-        }
-
-        return Sede::porDefecto();
     }
 
     /**
@@ -363,7 +335,7 @@ class DonacionService
         }
 
         return [[
-            'code' => 'PLAQUETAS_NO_HABILITADAS',
+            'code' => WarningCode::PlaquetasNoHabilitadas->value,
             'message' => 'PLAQUETAS: el donante no tiene habilitación vigente para aféresis de plaquetas.',
         ]];
     }

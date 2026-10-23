@@ -2,6 +2,8 @@
 
 namespace App\Rules;
 
+use App\Enums\TurnoEstado;
+use App\Enums\WarningCode;
 use App\Models\Paciente;
 use App\Models\TipoDonacion;
 use App\Models\Turno;
@@ -59,13 +61,13 @@ class TurnoRules
         // 2) Validación de turnos futuros PENDIENTE
         // -------------------------------------------------
         $turnosPendientes = Turno::where('paciente_id', $pacienteId)
-            ->where('estado', 'PENDIENTE')
+            ->where('estado', TurnoEstado::Pendiente->value)
             ->where('fecha', '>=', Hoy::fecha())
             ->get();
 
         if ($turnosPendientes->isNotEmpty()) {
             $warnings[] = [
-                'code' => 'TURNO_PENDIENTE_EXISTENTE',
+                'code' => WarningCode::TurnoPendienteExistente->value,
                 'message' => 'Paciente ya tiene turno pendiente',
             ];
         }
@@ -94,7 +96,7 @@ class TurnoRules
     {
         return array_values(array_filter(
             $warnings,
-            fn (array $warning) => ($warning['code'] ?? null) !== 'BLOQUEO_DIFERIMIENTO'
+            fn (array $warning) => ($warning['code'] ?? null) !== WarningCode::BloqueoDiferimiento->value
         ));
     }
 }

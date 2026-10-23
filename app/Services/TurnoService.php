@@ -3,13 +3,14 @@
 namespace App\Services;
 
 use App\Enums\WarningCode;
-use App\Models\AutorizacionExtraordinaria;
+use App\Enums\RecordatorioTipo;
+use App\Enums\TurnoEstado;
 use App\Models\Sede;
 use App\Models\Turno;
 use App\Rules\CapacidadRules;
 use App\Rules\TurnoRules;
-use App\Support\ForcedAuthor;
 use App\Support\RowLock;
+use App\Support\SedeOperativa;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,8 @@ class TurnoService
     public function __construct(
         private TurnoRules $turnoRules,
         private CapacidadRules $capacidadRules,
-        private RecordatorioService $recordatorios
+        private RecordatorioService $recordatorios,
+        private AutorizacionExtraordinariaService $autorizaciones
     ) {}
 
     public function list(array $filters = []): Collection
@@ -51,7 +53,7 @@ class TurnoService
     {
         // Resolve the sede up front: the capacity gate needs it, and it must be
         // pinned into the payload so the row and the sum agree on the site.
-        $sedeId = $this->resolveSedeId($data);
+        $sedeId = SedeOperativa::resolver($data)->id;
 
         try {
             $result = DB::transaction(function () use ($data, $sedeId) {
@@ -66,7 +68,7 @@ class TurnoService
         }
 
         if ($result instanceof Turno) {
-            $this->recordatorios->programar($result, RecordatorioService::CONFIRMACION);
+            $this->recordatorios->programar($result, RecordatorioTipo::Confirmacion);
         }
 
         return $result;
@@ -94,7 +96,7 @@ class TurnoService
 
         // A taken slot is a hard conflict (unique index), never overridable;
         // a cancelled turno frees its slot.
-        $activo = fn () => Turno::where('fecha', $data['fecha'])->where('hora', $data['hora'])->where('estado', '!=', 'CANCELADO');
+        $activo = fn () => Turno::where('fecha', $data['fecha'])->where('hora', $data['hora'])->where('estado', '!=', TurnoEstado::Cancelado->value);
         $slotTomado = $activo()->where('sede_id', $sedeId)->exists()
             || $activo()->where('paciente_id', $data['paciente_id'])->exists();
 
@@ -124,7 +126,7 @@ class TurnoService
                 'sede_id' => $sedeId,
                 'fecha' => $data['fecha'],
                 'hora' => $data['hora'],
-                'estado' => 'PENDIENTE',
+                'estado' => TurnoEstado::Pendiente->value,
             ];
 
             // Soporte opcional tipo_id en DB si la columna existe (compatibilidad sin migración)
@@ -136,18 +138,7 @@ class TurnoService
 
             // Si había violación y el personal forzó, registrar autorización
             if (!empty($warnings) && !empty($data['forzar'])) {
-                // Keep the operator's justification next to the rule codes.
-                $motivo = trim(WarningCode::describir($warnings).' — '.($data['motivo'] ?? ''), ' —');
-
-                // Fail-closed: only the authenticated staff operator can authorize.
-                $usuarioId = ForcedAuthor::idOrFail();
-
-                AutorizacionExtraordinaria::create([
-                    'paciente_id' => $data['paciente_id'],
-                    'usuario_id' => $usuarioId,
-                    'motivo' => $motivo,
-                    'fecha' => now(),
-                ]);
+                $this->autorizaciones->registrar((int) $data['paciente_id'], $warnings, $data['motivo'] ?? null);
             }
 
             return $turno;
@@ -157,19 +148,19 @@ class TurnoService
     public function update(Turno $turno, array $data): Turno
     {
         // Only a pending turno can be resolved; attended/cancelled are final.
-        if (isset($data['estado']) && $data['estado'] !== $turno->estado && $turno->estado !== 'PENDIENTE') {
+        if (isset($data['estado']) && ! TurnoEstado::from($turno->estado)->puedePasarA(TurnoEstado::from($data['estado']))) {
             throw ValidationException::withMessages([
                 'estado' => sprintf('Un turno %s no puede pasar a %s.', $turno->estado, $data['estado']),
             ]);
         }
 
-        $cancelado = ($data['estado'] ?? null) === 'CANCELADO' && $turno->estado !== 'CANCELADO';
+        $cancelado = ($data['estado'] ?? null) === TurnoEstado::Cancelado->value && $turno->estado !== TurnoEstado::Cancelado->value;
 
         $turno->update($data);
 
         if ($cancelado) {
             $this->recordatorios->anularPendientes($turno);
-            $this->recordatorios->programar($turno->fresh(), RecordatorioService::CANCELACION);
+            $this->recordatorios->programar($turno->fresh(), RecordatorioTipo::Cancelacion);
         }
 
         return $turno->fresh();
@@ -187,10 +178,10 @@ class TurnoService
     {
         return [
             'warning' => true,
-            'code' => 'HORARIO_OCUPADO',
+            'code' => WarningCode::HorarioOcupado->value,
             'message' => 'Ese horario ya está ocupado. Elegí otro horario.',
             'warnings' => [[
-                'code' => 'HORARIO_OCUPADO',
+                'code' => WarningCode::HorarioOcupado->value,
                 'message' => 'Ese horario ya está ocupado. Elegí otro horario.',
             ]],
         ];
@@ -207,32 +198,13 @@ class TurnoService
 
         return [
             'warning' => true,
-            'code' => 'CAPACIDAD_EXCEDIDA',
+            'code' => WarningCode::CapacidadExcedida->value,
             'message' => $message,
             'warnings' => [[
-                'code' => 'CAPACIDAD_EXCEDIDA',
+                'code' => WarningCode::CapacidadExcedida->value,
                 'message' => $message,
             ]],
         ];
-    }
-
-    /**
-     * Resolve the turno's sede: explicit payload, then the operator's home sede,
-     * then the flagged default sede, mirroring DonacionService.
-     */
-    private function resolveSedeId(array $data): int
-    {
-        if (! empty($data['sede_id'])) {
-            return (int) $data['sede_id'];
-        }
-
-        $staffSedeId = auth('staff')->user()?->sede_id;
-
-        if ($staffSedeId !== null) {
-            return (int) $staffSedeId;
-        }
-
-        return Sede::porDefecto()->id;
     }
 
     /**

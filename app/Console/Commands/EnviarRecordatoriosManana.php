@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\RecordatorioTipo;
+use App\Enums\TurnoEstado;
 use App\Models\Turno;
 use App\Services\RecordatorioService;
 use App\Support\Hoy;
@@ -25,9 +27,9 @@ class EnviarRecordatoriosManana extends Command
 
         Turno::with(['paciente', 'sede'])
             ->where('fecha', $manana)
-            ->where('estado', 'PENDIENTE')
+            ->where('estado', TurnoEstado::Pendiente->value)
             ->each(function (Turno $turno) use ($recordatorios, &$programados) {
-                $programados += $recordatorios->programar($turno, RecordatorioService::RECORDATORIO) ? 1 : 0;
+                $programados += $recordatorios->programar($turno, RecordatorioTipo::Recordatorio) ? 1 : 0;
             });
 
         $this->info("Recordatorios programados para {$manana}: {$programados}");

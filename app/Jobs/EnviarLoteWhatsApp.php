@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\RecordatorioEstado;
 use App\Models\RecordatorioTurno;
 use App\Services\RecordatorioService;
 use App\Services\Whatsapp\WhatsappSender;
@@ -82,7 +83,7 @@ class EnviarLoteWhatsApp implements ShouldBeUniqueUntilProcessing, ShouldQueue
         }
 
         if ($records->count() === (int) config('whatsapp.lote_maximo')
-            && RecordatorioTurno::where('estado', 'PENDIENTE')->exists()) {
+            && RecordatorioTurno::where('estado', RecordatorioEstado::Pendiente->value)->exists()) {
             static::dispatch();
         }
     }
@@ -99,7 +100,7 @@ class EnviarLoteWhatsApp implements ShouldBeUniqueUntilProcessing, ShouldQueue
             return;
         }
 
-        RecordatorioTurno::where('estado', 'ENVIANDO')->get()->each(
+        RecordatorioTurno::where('estado', RecordatorioEstado::Enviando->value)->get()->each(
             fn (RecordatorioTurno $record) => app(RecordatorioService::class)
                 ->markFailed($record, 'El envío se interrumpió; verifique en WhatsApp antes de reenviar.'),
         );
@@ -114,17 +115,19 @@ class EnviarLoteWhatsApp implements ShouldBeUniqueUntilProcessing, ShouldQueue
     private function reclamar(): Collection
     {
         return DB::transaction(function (): Collection {
-            $ids = RecordatorioTurno::where('estado', 'PENDIENTE')
+            $ids = RecordatorioTurno::where('estado', RecordatorioEstado::Pendiente->value)
                 ->orderBy('id')
                 ->limit((int) config('whatsapp.lote_maximo'))
                 ->lockForUpdate()
                 ->pluck('id');
 
-            RecordatorioTurno::whereIn('id', $ids)->where('estado', 'PENDIENTE')->update(['estado' => 'ENVIANDO']);
+            RecordatorioTurno::whereIn('id', $ids)
+                ->where('estado', RecordatorioEstado::Pendiente->value)
+                ->update(['estado' => RecordatorioEstado::Enviando->value]);
 
             return RecordatorioTurno::with('turno.paciente', 'turno.sede')
                 ->whereIn('id', $ids)
-                ->where('estado', 'ENVIANDO')
+                ->where('estado', RecordatorioEstado::Enviando->value)
                 ->orderBy('id')
                 ->get();
         });

@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\RecordatorioEstado;
+use App\Enums\RecordatorioTipo;
+use App\Enums\TurnoEstado;
 use App\Jobs\EnviarLoteWhatsApp;
 use App\Models\RecordatorioTurno;
 use App\Models\Turno;
@@ -24,27 +27,22 @@ use Illuminate\Validation\ValidationException;
  */
 class RecordatorioService
 {
-    public const CONFIRMACION = 'CONFIRMACION';
-
-    public const RECORDATORIO = 'RECORDATORIO';
-
-    public const CANCELACION = 'CANCELACION';
-
     public function __construct(
         private array $config = []
     ) {}
 
     /**
-     * Snapshot the reminder for a turno, persist it PENDIENTE and dispatch the
-     * (no-op) delivery job.
+     * Snapshot the message for a turno, persist it PENDIENTE and dispatch the
+     * batched delivery job.
      */
-    public function create(Turno $turno, string $tipo = self::RECORDATORIO): RecordatorioTurno
+    public function create(Turno $turno, RecordatorioTipo|string $tipo = RecordatorioTipo::Recordatorio): RecordatorioTurno
     {
-        $vigente = $turno->estado === 'PENDIENTE' && $turno->fecha->toDateString() >= Hoy::fecha();
+        $tipo = RecordatorioTipo::from($tipo instanceof RecordatorioTipo ? $tipo->value : $tipo);
+        $vigente = $turno->estado === TurnoEstado::Pendiente->value && $turno->fecha->toDateString() >= Hoy::fecha();
 
-        if ($tipo === self::CANCELACION ? $turno->estado !== 'CANCELADO' : ! $vigente) {
+        if ($tipo === RecordatorioTipo::Cancelacion ? $turno->estado !== TurnoEstado::Cancelado->value : ! $vigente) {
             throw ValidationException::withMessages([
-                'turno' => $tipo === self::CANCELACION
+                'turno' => $tipo === RecordatorioTipo::Cancelacion
                     ? 'Solo se avisa la cancelación de un turno cancelado.'
                     : 'Solo se envían recordatorios de turnos pendientes y futuros.',
             ]);
@@ -56,8 +54,8 @@ class RecordatorioService
             /** @var RecordatorioTurno $record */
             $record = $turno->recordatorios()->create([
                 'canal' => $this->config('canal'),
-                'tipo' => $tipo,
-                'estado' => 'PENDIENTE',
+                'tipo' => $tipo->value,
+                'estado' => RecordatorioEstado::Pendiente->value,
                 'contenido' => $contenido,
                 'intento' => 1,
             ]);
@@ -69,20 +67,19 @@ class RecordatorioService
         });
     }
 
-    /** Estados of a message that is queued, going out or already out. */
-    public const ESTADOS_ACTIVOS = ['PENDIENTE', 'ENVIANDO', 'ENVIADO'];
-
     /**
      * Automatic message: at most one per turno and tipo unless the previous
      * one failed. Returns null when it was already scheduled or sent. The
      * check and the insert run under a per turno+tipo lock so two concurrent
      * callers (booking retry, scheduler overlap) cannot both insert.
      */
-    public function programar(Turno $turno, string $tipo): ?RecordatorioTurno
+    public function programar(Turno $turno, RecordatorioTipo|string $tipo): ?RecordatorioTurno
     {
+        $tipo = $tipo instanceof RecordatorioTipo ? $tipo->value : $tipo;
+
         try {
             return Cache::lock("recordatorio:{$turno->id}:{$tipo}", 10)->block(5, function () use ($turno, $tipo) {
-                $existe = $turno->recordatorios()->where('tipo', $tipo)->whereIn('estado', self::ESTADOS_ACTIVOS)->exists();
+                $existe = $turno->recordatorios()->where('tipo', $tipo)->whereIn('estado', RecordatorioEstado::activos())->exists();
 
                 return $existe ? null : $this->create($turno, $tipo);
             });
@@ -102,9 +99,9 @@ class RecordatorioService
     public function anularPendientes(Turno $turno): int
     {
         return $turno->recordatorios()
-            ->whereIn('tipo', [self::CONFIRMACION, self::RECORDATORIO])
-            ->where('estado', 'PENDIENTE')
-            ->update(['estado' => 'FALLIDO', 'error' => 'Turno cancelado antes del envío']);
+            ->whereIn('tipo', [RecordatorioTipo::Confirmacion->value, RecordatorioTipo::Recordatorio->value])
+            ->where('estado', RecordatorioEstado::Pendiente->value)
+            ->update(['estado' => RecordatorioEstado::Fallido->value, 'error' => 'Turno cancelado antes del envío']);
     }
 
     /**
@@ -141,7 +138,7 @@ class RecordatorioService
     public function markSent(RecordatorioTurno $record, ?string $destino = null): RecordatorioTurno
     {
         $record->update([
-            'estado' => 'ENVIADO',
+            'estado' => RecordatorioEstado::Enviado->value,
             'sent_at' => now(),
             'destino' => $destino ?? $record->destino,
             'error' => null,
@@ -153,7 +150,7 @@ class RecordatorioService
     public function markFailed(RecordatorioTurno $record, ?string $error = null, ?string $destino = null): RecordatorioTurno
     {
         $record->update([
-            'estado' => 'FALLIDO',
+            'estado' => RecordatorioEstado::Fallido->value,
             'intento' => $record->intento + 1,
             'error' => $error,
             'destino' => $destino ?? $record->destino,
@@ -166,8 +163,9 @@ class RecordatorioService
      * Render the reminder body from config. Only donor name, turno date/time
      * and sede are exposed; no DNI or clinical data.
      */
-    public function render(Turno $turno, string $tipo = self::RECORDATORIO): string
+    public function render(Turno $turno, RecordatorioTipo|string $tipo = RecordatorioTipo::Recordatorio): string
     {
+        $tipo = $tipo instanceof RecordatorioTipo ? $tipo->value : $tipo;
         $paciente = $turno->paciente;
         $sede = $turno->sede;
 
@@ -182,7 +180,7 @@ class RecordatorioService
             ':sede' => (string) ($sede?->nombre ?? ''),
         ];
 
-        $plantilla = $tipo === self::RECORDATORIO
+        $plantilla = $tipo === RecordatorioTipo::Recordatorio->value
             ? $this->config('plantilla')
             : (string) config("recordatorio_predonacion.plantillas.{$tipo}");
 

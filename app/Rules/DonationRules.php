@@ -2,6 +2,7 @@
 
 namespace App\Rules;
 
+use App\Enums\WarningCode;
 use App\Models\Donacion;
 use App\Models\Paciente;
 use App\Models\Restriccion;
@@ -49,7 +50,7 @@ class DonationRules
         // A donor marked NO_APTO needs an explicit, audited override.
         if (strtoupper((string) $pacienteModel?->aptitud?->tipo) === 'NO_APTO') {
             $warnings[] = [
-                'code' => 'BLOQUEO_NO_APTO',
+                'code' => WarningCode::BloqueoNoApto->value,
                 'message' => 'Paciente NO APTO: la donación requiere autorización extraordinaria.',
             ];
         }
@@ -76,7 +77,7 @@ class DonationRules
                 // diffInHours false => signed; si fechaSolicitada es anterior, diff negativo -> no aplica
                 if ($diffHoras >= 0 && $diffHoras < 48) {
                     $warnings[] = [
-                        'code' => 'WARNING_INTERVALO',
+                        'code' => WarningCode::Intervalo->value,
                         'message' => 'PLAQUETAS: intervalo mínimo 48 horas desde la última donación por aféresis no cumplido (Res. 536/2026).',
                     ];
                 }
@@ -96,7 +97,7 @@ class DonationRules
             if ($plaquetasUltimos7Dias >= 2) {
                 // Ya existen 2 en los últimos 7 días; la solicitada sería la 3ra -> >2 en 7 días
                 $warnings[] = [
-                    'code' => 'WARNING_LIMITE_PERIODO',
+                    'code' => WarningCode::LimitePeriodo->value,
                     'message' => 'PLAQUETAS: supera el límite de 2 procedimientos en 7 días (Res. 536/2026).',
                 ];
             }
@@ -118,7 +119,7 @@ class DonationRules
             // Si ya hay 24 en el último año, la siguiente (25) supera el límite
             if ($plaquetasUltimoAnio >= 24) {
                 $warnings[] = [
-                    'code' => 'WARNING_LIMITE_ANUAL',
+                    'code' => WarningCode::LimiteAnual->value,
                     'message' => 'PLAQUETAS: supera el límite anual de 24 donaciones en 12 meses (Res. 536/2026).',
                 ];
             }
@@ -135,7 +136,7 @@ class DonationRules
                 $diffDias = $fechaUltima->diffInDays($fechaSolicitada, false);
                 if ($diffDias >= 0 && $diffDias < 14) {
                     $warnings[] = [
-                        'code' => 'WARNING_INTERVALO',
+                        'code' => WarningCode::Intervalo->value,
                         'message' => 'PLASMA ocasional: intervalo mínimo 14 días desde la última donación no cumplido (Res. 536/2026).',
                     ];
                 }
@@ -154,7 +155,7 @@ class DonationRules
 
             if ($plasmaUltimoAnio >= 24) {
                 $warnings[] = [
-                    'code' => 'WARNING_LIMITE_ANUAL',
+                    'code' => WarningCode::LimiteAnual->value,
                     'message' => 'PLASMA ocasional: supera el límite de 24 donaciones en 12 meses (Res. 536/2026).',
                 ];
             }
@@ -223,7 +224,7 @@ class DonationRules
 
         if ($conflicto) {
             return [[
-                'code' => 'WARNING_INTERVALO_SEXO',
+                'code' => WarningCode::IntervaloSexo->value,
                 'message' => sprintf(
                     'Intervalo mínimo entre donaciones no cumplido: %d meses (%s).',
                     (int) $minMeses,
@@ -256,7 +257,7 @@ class DonationRules
         }
 
         return [[
-            'code' => 'BLOQUEO_DIFERIMIENTO',
+            'code' => WarningCode::BloqueoDiferimiento->value,
             'message' => 'Paciente con diferimiento activo: la donación no está habilitada (Res. 536/2026).',
         ]];
     }
