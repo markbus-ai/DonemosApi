@@ -36,7 +36,8 @@ class PacienteController
 
         // Additive: keep the raw fields clients already read (aptitud_id, ...)
         // and add aptitud/activeDeferral in the same shape as the list.
-        $resource = (new PacienteResource($paciente->load(['aptitud', 'activeDeferral'])))->resolve();
+        $paciente->load(['aptitud', 'activeDeferral'])->loadExists('observaciones');
+        $resource = (new PacienteResource($paciente))->resolve();
 
         return response()->json([...$raw, ...$resource]);
     }

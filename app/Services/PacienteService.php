@@ -45,6 +45,7 @@ class PacienteService
     {
         return Paciente::query()
             ->with(['aptitud', 'activeDeferral'])
+            ->withExists('observaciones')
             ->when(filled($filters['search'] ?? null), function ($query) use ($filters) {
                 $term = '%'.trim((string) $filters['search']).'%';
 

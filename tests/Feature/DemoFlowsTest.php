@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Aptitud;
 use App\Models\AutorizacionExtraordinaria;
+use App\Models\Motivo;
 use App\Models\Paciente;
 use App\Models\Rol;
 use App\Models\Sede;
@@ -114,6 +115,18 @@ class DemoFlowsTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1)
             ->assertJsonPath('0.fecha', '2026-10-23');
+    }
+
+    public function test_patient_payload_flags_an_observation(): void
+    {
+        $paciente = $this->paciente();
+        $motivo = Motivo::firstOrCreate(['nombre' => 'Prueba']);
+
+        $this->getJson('/api/pacientes/'.$paciente->dni)->assertJsonPath('activeObservacion', false);
+        $this->postJson("/api/pacientes/{$paciente->dni}/observacion", ['motivo_id' => $motivo->id, 'desde' => '2026-10-22'])->assertCreated();
+
+        $this->getJson('/api/pacientes/'.$paciente->dni)->assertJsonPath('activeObservacion', true);
+        $this->getJson('/api/pacientes?search='.$paciente->dni)->assertJsonPath('data.0.activeObservacion', true);
     }
 
     public function test_user_payload_names_sede_and_zona(): void

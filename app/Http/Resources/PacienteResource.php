@@ -35,6 +35,11 @@ class PacienteResource extends JsonResource
                 $this->resource->relationLoaded('activeDeferral'),
                 fn () => $this->resource->getRelation('activeDeferral') !== null,
             ),
+            // Boolean flag only, so clients can offer "Quitar observación".
+            'activeObservacion' => $this->when(
+                $this->resource->getAttribute('observaciones_exists') !== null,
+                fn () => (bool) $this->resource->getAttribute('observaciones_exists'),
+            ),
         ];
     }
 }
