@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RecordatorioController;
 use App\Http\Controllers\TurnoController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/turnos', [TurnoController::class, 'index']);
 Route::post('/turnos', [TurnoController::class, 'store']);

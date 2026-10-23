@@ -17,7 +17,7 @@ final class ForcedAuthor
         $id = auth('staff')->id();
 
         if ($id === null) {
-            throw new ForcedOperationRequiresAuthenticationException();
+            throw new ForcedOperationRequiresAuthenticationException;
         }
 
         return (int) $id;

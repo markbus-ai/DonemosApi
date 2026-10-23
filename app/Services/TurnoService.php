@@ -101,7 +101,7 @@ class TurnoService
 
         $warnings = $this->resolveWarnings($data);
 
-        if (!empty($warnings) && empty($data['forzar'])) {
+        if (! empty($warnings) && empty($data['forzar'])) {
             throw RuleWarningsException::turno($warnings);
         }
 

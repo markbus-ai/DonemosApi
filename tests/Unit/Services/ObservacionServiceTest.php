@@ -18,7 +18,7 @@ class ObservacionServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ObservacionService();
+        $this->service = new ObservacionService;
     }
 
     private function seedAptitudes(): void

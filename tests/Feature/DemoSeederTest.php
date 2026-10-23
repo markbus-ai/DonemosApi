@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Models\Paciente;
 use App\Models\Sede;
 use App\Models\Turno;
+use Database\Seeders\AptitudSeeder;
+use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\DemoSeeder;
 use Database\Seeders\SedeSeeder;
+use Database\Seeders\TipoDonacionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -40,8 +43,8 @@ class DemoSeederTest extends TestCase
         // Standard lookup data the demo seed resolves against (APTO, sedes,
         // donation types) — exactly what a real `db:seed` gives it.
         $this->seed(SedeSeeder::class);
-        $this->seed(\Database\Seeders\AptitudSeeder::class);
-        $this->seed(\Database\Seeders\TipoDonacionSeeder::class);
+        $this->seed(AptitudSeeder::class);
+        $this->seed(TipoDonacionSeeder::class);
     }
 
     private function runDemoSeeder(): void
@@ -155,7 +158,7 @@ class DemoSeederTest extends TestCase
     {
         $this->assertFalse(filter_var(env('SEED_DEMO_DATA', false), FILTER_VALIDATE_BOOL));
 
-        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+        $this->seed(DatabaseSeeder::class);
 
         $this->assertSame(0, Paciente::count(), 'Production flow must not seed demo patients.');
         $this->assertSame(0, Turno::count(), 'Production flow must not seed demo turnos.');

@@ -8,6 +8,7 @@ use App\Models\Paciente;
 use App\Models\Restriccion;
 use App\Models\TipoDonacion;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * DonationRules - pure domain object.
@@ -184,7 +185,7 @@ class DonationRules
      * interval. The interval is checked against the closest donation on either
      * side of the requested date, so back-dated entries cannot bypass it.
      *
-     * @param  \Illuminate\Support\Collection<int, Donacion>  $historial
+     * @param  Collection<int, Donacion>  $historial
      * @return array<int, array{code: string, message: string}>
      */
     private function checkSexInterval(?Paciente $paciente, $historial, Carbon $fechaSolicitada): array

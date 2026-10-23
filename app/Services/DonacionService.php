@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Enums\WarningCode;
 use App\Enums\TurnoEstado;
+use App\Enums\WarningCode;
 use App\Exceptions\RuleWarningsException;
 use App\Models\Autoexclusion;
 use App\Models\Donacion;
@@ -16,10 +16,10 @@ use App\Rules\ComponentRules;
 use App\Rules\DonationRules;
 use App\Support\Hoy;
 use App\Support\NumeroDonacion;
+use App\Support\Paginacion;
 use App\Support\RowLock;
 use App\Support\SedeOperativa;
 use Carbon\Carbon;
-use App\Support\Paginacion;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;

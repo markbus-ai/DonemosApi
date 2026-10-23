@@ -26,7 +26,7 @@ class AptitudServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new AptitudService();
+        $this->service = new AptitudService;
     }
 
     private function seedAptitudes(): void
@@ -249,7 +249,7 @@ class AptitudServiceTest extends TestCase
 
     public function test_apto_observacion_sin_motivo_falla_validacion(): void
     {
-        $request = new UpdateAptitudRequest();
+        $request = new UpdateAptitudRequest;
         $request->merge([
             'tipo' => 'APTO_OBSERVACION',
             'desde' => '2026-01-01',
@@ -270,7 +270,7 @@ class AptitudServiceTest extends TestCase
             'motivo_id' => $m->id,
         ];
 
-        $req = new UpdateAptitudRequest();
+        $req = new UpdateAptitudRequest;
         $req->merge($data);
         $validator = Validator::make($req->all(), $req->rules());
 
@@ -280,7 +280,7 @@ class AptitudServiceTest extends TestCase
 
     public function test_apto_sin_motivo_pasa_validacion(): void
     {
-        $request = new UpdateAptitudRequest();
+        $request = new UpdateAptitudRequest;
         $request->merge(['tipo' => 'APTO']);
         $validator = Validator::make($request->all(), $request->rules());
         $this->assertFalse($validator->fails());
@@ -291,7 +291,7 @@ class AptitudServiceTest extends TestCase
         $this->seedAptitudes();
         $motivo = $this->createMotivo();
 
-        $request = new UpdateAptitudRequest();
+        $request = new UpdateAptitudRequest;
         $request->merge([
             'tipo' => 'APTO_OBSERVACION',
             'motivo_id' => $motivo->id,

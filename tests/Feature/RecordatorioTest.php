@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Jobs\EnviarLoteWhatsApp;
 use App\Models\Aptitud;
+use App\Models\Motivo;
 use App\Models\Paciente;
 use App\Models\RecordatorioTurno;
 use App\Models\Restriccion;
@@ -160,7 +161,7 @@ class RecordatorioTest extends TestCase
         $turno = $this->turno($paciente);
 
         // Give the patient a deferral with a clinical reason.
-        $motivo = \App\Models\Motivo::create(['nombre' => 'Hemoglobina baja']);
+        $motivo = Motivo::create(['nombre' => 'Hemoglobina baja']);
         Restriccion::create([
             'paciente_id' => $paciente->id,
             'motivo_id' => $motivo->id,

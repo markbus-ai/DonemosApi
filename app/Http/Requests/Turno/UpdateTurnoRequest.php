@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Turno;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Enums\TurnoEstado;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateTurnoRequest extends FormRequest

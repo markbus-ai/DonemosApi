@@ -2,8 +2,8 @@
 
 namespace App\Rules;
 
-use App\Enums\WarningCode;
 use App\Enums\TurnoEstado;
+use App\Enums\WarningCode;
 use App\Models\TipoDonacion;
 use App\Models\Turno;
 
