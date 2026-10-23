@@ -17,7 +17,10 @@ class ZonaSeederTest extends TestCase
     {
         $this->seed(SedeSeeder::class);
         $this->seed(ZonaSeeder::class);
-        $this->seed(ZonaSeeder::class);
+        $this->assertSame(0, Usuario::whereIn('username', ['ADS', 'ADZ'])->count());
+
+        ZonaSeeder::seedDemoAdmins();
+        ZonaSeeder::seedDemoAdmins();
 
         $adminSede = Usuario::where('username', 'ADS')->firstOrFail();
         $adminZona = Usuario::where('username', 'ADZ')->firstOrFail();

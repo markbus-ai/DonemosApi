@@ -16,9 +16,11 @@ class ReporteController
     {
         $sedeIds = $this->sedesVisibles($request->user());
 
+        $request->validate(['sede_id' => ['nullable', 'integer', 'min:1']]);
+
         // An explicit sede narrows the scope and must be one the caller may see.
         if ($request->filled('sede_id')) {
-            $sedeId = (int) $request->query('sede_id');
+            $sedeId = (int) $request->input('sede_id');
 
             abort_unless(in_array($sedeId, $sedeIds, true), 403, 'No tenés acceso a esa sede.');
 

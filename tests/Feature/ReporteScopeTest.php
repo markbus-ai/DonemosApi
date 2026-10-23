@@ -142,6 +142,25 @@ class ReporteScopeTest extends TestCase
             ->assertStatus(403);
     }
 
+    public function test_malformed_sede_id_is_rejected(): void
+    {
+        $this->actingAs_($this->usuario('admin-zona', null, $this->costa->id));
+
+        $this->getJson('/api/reportes/resumen?sede_id='.$this->pinamar->id.'abc')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('sede_id');
+    }
+
+    public function test_admins_without_sede_or_zona_see_nothing(): void
+    {
+        foreach ([$this->usuario('admin-sede'), $this->usuario('admin-zona')] as $usuario) {
+            $this->actingAs_($usuario);
+
+            $this->getJson('/api/reportes/resumen')->assertOk()->assertJsonPath('total_donaciones', 0);
+            $this->getJson('/api/reportes/sedes')->assertOk()->assertExactJson([]);
+        }
+    }
+
     public function test_operational_staff_is_forbidden(): void
     {
         $this->actingAs_($this->usuario('staff', $this->central->id));

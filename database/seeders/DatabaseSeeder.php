@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
         // demo patients or fake turnos.
         if (filter_var(env('SEED_DEMO_DATA', false), FILTER_VALIDATE_BOOL)) {
             $this->call(DemoSeeder::class);
+            ZonaSeeder::seedDemoAdmins();
         }
     }
 }

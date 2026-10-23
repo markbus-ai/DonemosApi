@@ -11,15 +11,25 @@ use Illuminate\Support\Facades\Hash;
 
 class ZonaSeeder extends Seeder
 {
+    public const ZONA_DEFAULT = 'Costa Atlántica';
+
     /**
-     * Group the seeded sedes into one zona and seed local/dev admin logins
-     * (admin-sede on Sede Central, admin-zona on that zona). Idempotent.
+     * Group every sede without a zona into the default zona. Idempotent.
      */
     public function run(): void
     {
-        $zona = Zona::firstOrCreate(['nombre' => 'Costa Atlántica']);
+        $zona = Zona::firstOrCreate(['nombre' => self::ZONA_DEFAULT]);
 
         Sede::whereNull('zona_id')->update(['zona_id' => $zona->id]);
+    }
+
+    /**
+     * Local/dev admin logins (admin-sede on Sede Central, admin-zona on the
+     * default zona). Demo-only: never seeded on real deploys.
+     */
+    public static function seedDemoAdmins(): void
+    {
+        $zona = Zona::firstOrCreate(['nombre' => self::ZONA_DEFAULT]);
 
         $password = env('SEED_ADMIN_PASSWORD', '1234');
 
