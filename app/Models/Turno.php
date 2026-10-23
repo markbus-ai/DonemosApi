@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Casts\HoraMinuto;
+use App\Casts\SoloFecha;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,8 +18,8 @@ class Turno extends Model
     protected $fillable = ['paciente_id', 'tipo_id', 'sede_id', 'fecha', 'hora', 'estado'];
 
     protected $casts = [
-        'fecha' => 'date',
-        'hora' => 'datetime:H:i',
+        'fecha' => SoloFecha::class,
+        'hora' => HoraMinuto::class,
     ];
 
     public function paciente(): BelongsTo

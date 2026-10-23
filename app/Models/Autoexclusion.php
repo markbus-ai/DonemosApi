@@ -14,6 +14,11 @@ class Autoexclusion extends Model
 
     protected $fillable = ['donacion_id', 'motivo', 'created_by'];
 
+    // Confidential by design: never readable from a raw dump.
+    protected $casts = [
+        'motivo' => 'encrypted',
+    ];
+
     public function donacion(): BelongsTo
     {
         return $this->belongsTo(Donacion::class, 'donacion_id');

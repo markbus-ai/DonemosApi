@@ -96,9 +96,11 @@ class AutoexclusionTest extends TestCase
 
         $this->assertDatabaseHas('autoexclusiones', [
             'donacion_id' => $donacion->id,
-            'motivo' => 'Solicitud del donante',
             'created_by' => $this->staff->id,
         ]);
+        // Stored encrypted; only the model can read it back.
+        $this->assertDatabaseMissing('autoexclusiones', ['motivo' => 'Solicitud del donante']);
+        $this->assertSame('Solicitud del donante', $donacion->fresh()->autoexclusion->motivo);
     }
 
     public function test_duplicate_self_exclusion_is_rejected_with_422(): void
@@ -157,7 +159,7 @@ class AutoexclusionTest extends TestCase
 
         $this->assertNull($donacion->fresh()->autoexclusion->motivo);
         $this->assertSame(
-            'Autoexclusión del donante',
+            'DESCARTE_CONFIDENCIAL',
             $donacion->componentes()->firstOrFail()->motivo_descarte,
         );
     }

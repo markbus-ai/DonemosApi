@@ -26,8 +26,8 @@ class TurnoService
         return Turno::query()
             ->with(['paciente', 'sede', 'tipoDonacion'])
             ->when(isset($filters['paciente_id']), fn ($q) => $q->where('paciente_id', $filters['paciente_id']))
-            ->when(isset($filters['fecha']), fn ($q) => $q->whereDate('fecha', $filters['fecha']))
-            ->when(isset($filters['desde']), fn ($q) => $q->whereDate('fecha', '>=', $filters['desde']))
+            ->when(isset($filters['fecha']), fn ($q) => $q->where('fecha', $filters['fecha']))
+            ->when(isset($filters['desde']), fn ($q) => $q->where('fecha', '>=', $filters['desde']))
             ->orderBy('fecha')
             ->orderBy('hora')
             ->get();
@@ -63,9 +63,11 @@ class TurnoService
             return $this->capacidadExcedida($capacidad);
         }
 
-        // A taken slot is a hard conflict (unique index), never overridable.
-        $slotTomado = Turno::where('sede_id', $sedeId)->whereDate('fecha', $data['fecha'])->where('hora', $data['hora'])->exists()
-            || Turno::where('paciente_id', $data['paciente_id'])->whereDate('fecha', $data['fecha'])->where('hora', $data['hora'])->exists();
+        // A taken slot is a hard conflict (unique index), never overridable;
+        // a cancelled turno frees its slot.
+        $activo = fn () => Turno::where('fecha', $data['fecha'])->where('hora', $data['hora'])->where('estado', '!=', 'CANCELADO');
+        $slotTomado = $activo()->where('sede_id', $sedeId)->exists()
+            || $activo()->where('paciente_id', $data['paciente_id'])->exists();
 
         if ($slotTomado) {
             return $this->horarioOcupado();

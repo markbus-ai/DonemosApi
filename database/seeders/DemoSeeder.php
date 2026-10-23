@@ -123,12 +123,11 @@ class DemoSeeder extends Seeder
 
                 // Key on the same (sede_id, fecha, hora) the DB unique enforces,
                 // so a second run updates the slot instead of inserting a
-                // duplicate. fecha stays a date object so the query binding
-                // matches the stored row (date-only strings would not).
+                // duplicate. fecha is stored as Y-m-d, so key on that string.
                 Turno::updateOrCreate(
                     [
                         'sede_id' => $sede->id,
-                        'fecha' => $fecha,
+                        'fecha' => $fecha->toDateString(),
                         'hora' => $hora,
                     ],
                     [

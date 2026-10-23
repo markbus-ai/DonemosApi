@@ -24,6 +24,8 @@ use Illuminate\Validation\ValidationException;
 
 class DonacionService
 {
+    public const DESCARTE_CONFIDENCIAL = 'DESCARTE_CONFIDENCIAL';
+
     public const DEFAULT_PER_PAGE = 15;
 
     public const MAX_PER_PAGE = 50;
@@ -127,7 +129,7 @@ class DonacionService
             // The donation attends the donor's pending turno of that day here.
             Turno::where('paciente_id', $paciente->id)
                 ->where('sede_id', $sede->id)
-                ->whereDate('fecha', $fecha)
+                ->where('fecha', $fecha)
                 ->where('estado', 'PENDIENTE')
                 ->update(['estado' => 'ATENDIDO']);
 
@@ -205,10 +207,12 @@ class DonacionService
                     'created_by' => auth('staff')->id(),
                 ]);
 
-                // Discard every unit; disposal keeps the discard reason non-null.
+                // Discard every unit with a neutral code: the bag must never
+                // reveal that the donor self-excluded (the reason stays only in
+                // autoexclusiones, encrypted).
                 $donacion->componentes()->update([
                     'descartado' => true,
-                    'motivo_descarte' => $data['motivo'] ?? 'Autoexclusión del donante',
+                    'motivo_descarte' => self::DESCARTE_CONFIDENCIAL,
                 ]);
 
                 return $autoexclusion;

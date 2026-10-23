@@ -80,7 +80,7 @@ class CapacidadRules
     {
         $turnos = Turno::query()
             ->where('sede_id', $sedeId)
-            ->whereDate('fecha', $fecha)
+            ->where('fecha', $fecha)
             // A cancelled turno frees its minutes.
             ->where('estado', '!=', 'CANCELADO')
             ->when($this->hasTipoIdColumn(), fn ($q) => $q->with('tipoDonacion'))
