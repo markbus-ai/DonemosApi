@@ -175,6 +175,10 @@ class DemoHardeningTest extends TestCase
 
         $this->postJson('/api/pacientes', ['dni' => '30111222', 'nombre' => 'A', 'apellido' => 'B', 'telefono' => '2254000000'])
             ->assertCreated();
+
+        app()->setLocale('es');
+        $this->postJson('/api/pacientes', ['dni' => '12.345.678', 'nombre' => 'A', 'apellido' => 'B', 'telefono' => '2254000000'])
+            ->assertJsonPath('errors.dni.0', 'El DNI debe tener 7 u 8 dígitos, sin puntos.');
     }
 
     public function test_dni_with_leading_zero_duplicates_existing_patient(): void
