@@ -15,19 +15,15 @@ class ObservacionController
         private ObservacionService $observacionService
     ) {}
 
-    public function store(string $dni, StoreObservacionRequest $request): JsonResponse
+    public function store(Paciente $paciente, StoreObservacionRequest $request): JsonResponse
     {
-        $paciente = Paciente::where('dni', $dni)->firstOrFail();
-
         $observacion = $this->observacionService->create($paciente, $request->validated());
 
         return response()->json($observacion, 201);
     }
 
-    public function destroy(string $dni): JsonResponse
+    public function destroy(Paciente $paciente): JsonResponse
     {
-        $paciente = Paciente::where('dni', $dni)->firstOrFail();
-
         $this->observacionService->delete($this->observacionService->latestFor($paciente));
 
         return response()->json(null, 204);

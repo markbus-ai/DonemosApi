@@ -56,8 +56,10 @@ class WhatsappVinculacionTest extends TestCase
     {
         $this->actingAsRol('staff');
 
-        $this->getJson('/api/whatsapp/estado')->assertStatus(403);
-        $this->postJson('/api/whatsapp/vincular')->assertStatus(403);
+        $this->getJson('/api/whatsapp/estado')->assertStatus(403)
+            ->assertJsonPath('message', 'Solo un administrador puede vincular WhatsApp.');
+        $this->postJson('/api/whatsapp/vincular')->assertStatus(403)
+            ->assertJsonPath('message', 'Solo un administrador puede vincular WhatsApp.');
     }
 
     public function test_state_is_unverified_before_any_link_attempt(): void

@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Paciente\IndexPacienteRequest;
 use App\Http\Requests\Paciente\StorePacienteRequest;
 use App\Http\Requests\Paciente\UpdatePacienteRequest;
 use App\Http\Resources\PacienteResource;
+use App\Models\Paciente;
 use App\Services\PacienteService;
-use Illuminate\Http\Request;
 
 class PacienteController
 {
@@ -14,14 +15,9 @@ class PacienteController
         private PacienteService $pacienteService
     ) {}
 
-    public function index(Request $request)
+    public function index(IndexPacienteRequest $request)
     {
-        $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'per_page' => ['nullable', 'integer', 'min:1'],
-        ]);
-
-        $pacientes = $this->pacienteService->list($request->only(['search', 'per_page']));
+        $pacientes = $this->pacienteService->list($request->validated());
 
         // Keep the repo's `response()->json(...)` style while preserving the
         // pagination envelope (data/meta/links); JSON-encoding a resource
@@ -29,9 +25,8 @@ class PacienteController
         return response()->json(PacienteResource::collection($pacientes)->response($request)->getData(true));
     }
 
-    public function show(string $dni)
+    public function show(Paciente $paciente)
     {
-        $paciente = $this->pacienteService->findByDni($dni);
         $raw = $paciente->toArray();
 
         // Additive: keep the raw fields clients already read (aptitud_id, ...)
@@ -49,9 +44,8 @@ class PacienteController
         return response()->json($paciente, 201);
     }
 
-    public function update(string $dni, UpdatePacienteRequest $request)
+    public function update(Paciente $paciente, UpdatePacienteRequest $request)
     {
-        $paciente = $this->pacienteService->findByDni($dni);
         $paciente = $this->pacienteService->update($paciente, $request->validated());
 
         return response()->json($paciente);

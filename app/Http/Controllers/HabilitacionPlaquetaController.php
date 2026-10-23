@@ -14,26 +14,20 @@ class HabilitacionPlaquetaController
         private HabilitacionPlaquetaService $habilitacionPlaquetaService
     ) {}
 
-    public function index(string $dni): JsonResponse
+    public function index(Paciente $paciente): JsonResponse
     {
-        $paciente = Paciente::where('dni', $dni)->firstOrFail();
-
         return response()->json($this->habilitacionPlaquetaService->list($paciente));
     }
 
-    public function store(string $dni, StoreHabilitacionPlaquetaRequest $request): JsonResponse
+    public function store(Paciente $paciente, StoreHabilitacionPlaquetaRequest $request): JsonResponse
     {
-        $paciente = Paciente::where('dni', $dni)->firstOrFail();
-
         $habilitacion = $this->habilitacionPlaquetaService->create($paciente, $request->validated());
 
         return response()->json($habilitacion, 201);
     }
 
-    public function destroy(string $dni): JsonResponse
+    public function destroy(Paciente $paciente): JsonResponse
     {
-        $paciente = Paciente::where('dni', $dni)->firstOrFail();
-
         $habilitacion = $paciente->habilitacionesPlaquetas()
             ->vigente(Hoy::fecha())
             ->firstOrFail();

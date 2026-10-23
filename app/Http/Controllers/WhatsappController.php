@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Services\Whatsapp\WhatsappVinculacion;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * WhatsApp linking for turno messages. Admin roles only: the QR grants access
- * to the hemocentro's WhatsApp account.
+ * WhatsApp linking for turno messages. Admin roles only (`administrar-whatsapp`
+ * gate on the routes): the QR grants access to the hemocentro's WhatsApp
+ * account.
  */
 class WhatsappController
 {
@@ -18,17 +18,13 @@ class WhatsappController
         private WhatsappVinculacion $vinculacion
     ) {}
 
-    public function estado(Request $request)
+    public function estado()
     {
-        $this->autorizar($request);
-
         return response()->json($this->vinculacion->estado());
     }
 
-    public function vincular(Request $request)
+    public function vincular()
     {
-        $this->autorizar($request);
-
         // The lock closes the gap between the check and the bridge start, so
         // two clicks cannot launch two bridges on the same session.
         $lock = Cache::lock('whatsapp:vincular', 30);
@@ -42,10 +38,5 @@ class WhatsappController
         } finally {
             $lock->release();
         }
-    }
-
-    private function autorizar(Request $request): void
-    {
-        abort_unless($request->user()->puedeVerReportes(), 403, 'Solo un administrador puede vincular WhatsApp.');
     }
 }

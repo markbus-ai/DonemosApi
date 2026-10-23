@@ -12,19 +12,13 @@ class RecordatorioController
         private RecordatorioService $recordatorioService
     ) {}
 
-    public function index(string $id): JsonResponse
+    public function index(Turno $turno): JsonResponse
     {
-        $turno = Turno::findOrFail($id);
-
         return response()->json($this->recordatorioService->list($turno));
     }
 
-    public function store(string $id): JsonResponse
+    public function store(Turno $turno): JsonResponse
     {
-        $turno = Turno::findOrFail($id);
-
-        $record = $this->recordatorioService->create($turno);
-
-        return response()->json($record, 201);
+        return response()->json($this->recordatorioService->create($turno), 201);
     }
 }

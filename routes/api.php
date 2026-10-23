@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Staff-only domain endpoints: no token, no mutation.
@@ -18,7 +17,3 @@ Route::middleware('auth:staff')->group(function () {
 });
 
 require __DIR__.'/AuthRouter.php';
-
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');

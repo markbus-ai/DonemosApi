@@ -2,25 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Usuario;
+use App\Http\Requests\Reporte\ResumenReporteRequest;
 use App\Services\ReporteService;
 use Illuminate\Http\Request;
 
+/** Role access is the `ver-reportes` gate on the routes. */
 class ReporteController
 {
     public function __construct(
         private ReporteService $reporteService
     ) {}
 
-    public function resumen(Request $request)
+    public function resumen(ResumenReporteRequest $request)
     {
-        $sedeIds = $this->sedesVisibles($request->user());
-
-        $request->validate([
-            'sede_id' => ['nullable', 'integer', 'min:1'],
-            'desde' => ['nullable', 'date_format:Y-m-d'],
-            'hasta' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:desde'],
-        ]);
+        $sedeIds = $request->user()->sedesVisiblesIds();
 
         // An explicit sede narrows the scope and must be one the caller may see.
         if ($request->filled('sede_id')) {
@@ -38,18 +33,6 @@ class ReporteController
 
     public function sedes(Request $request)
     {
-        return response()->json(
-            $this->reporteService->sedes($this->sedesVisibles($request->user()))
-        );
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function sedesVisibles(Usuario $usuario): array
-    {
-        abort_unless($usuario->puedeVerReportes(), 403, 'Tu rol no permite ver estadísticas.');
-
-        return $usuario->sedesVisiblesIds();
+        return response()->json($this->reporteService->sedes($request->user()->sedesVisiblesIds()));
     }
 }

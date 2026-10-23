@@ -13,20 +13,16 @@ class RestriccionController
         private RestriccionService $restriccionService
     ) {}
 
-    public function store(string $dni, StoreRestriccionRequest $request): JsonResponse
+    public function store(Paciente $paciente, StoreRestriccionRequest $request): JsonResponse
     {
-        $paciente = Paciente::where('dni', $dni)->firstOrFail();
-
         // A new deferral closes the prior active row; it is never rejected as a duplicate.
         $restriccion = $this->restriccionService->create($paciente, $request->validated());
 
         return response()->json($restriccion, 201);
     }
 
-    public function destroy(string $dni): JsonResponse
+    public function destroy(Paciente $paciente): JsonResponse
     {
-        $paciente = Paciente::where('dni', $dni)->firstOrFail();
-
         $restriccion = $paciente->activeDeferral()->firstOrFail();
 
         $this->restriccionService->close($restriccion);

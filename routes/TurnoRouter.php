@@ -6,6 +6,6 @@ use App\Http\Controllers\TurnoController;
 
 Route::get('/turnos', [TurnoController::class, 'index']);
 Route::post('/turnos', [TurnoController::class, 'store']);
-Route::patch('/turnos/{id}', [TurnoController::class, 'update']);
-Route::get('/turnos/{id}/recordatorios', [RecordatorioController::class, 'index']);
-Route::post('/turnos/{id}/recordatorio', [RecordatorioController::class, 'store']);
+Route::patch('/turnos/{turno}', [TurnoController::class, 'update']);
+Route::get('/turnos/{turno}/recordatorios', [RecordatorioController::class, 'index']);
+Route::post('/turnos/{turno}/recordatorio', [RecordatorioController::class, 'store']);

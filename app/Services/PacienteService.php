@@ -4,14 +4,11 @@ namespace App\Services;
 
 use App\Models\Aptitud;
 use App\Models\Paciente;
+use App\Support\Paginacion;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class PacienteService
 {
-    public const DEFAULT_PER_PAGE = 15;
-
-    public const MAX_PER_PAGE = 50;
-
     public function create(array $data): Paciente
     {
         $aptitud = Aptitud::where('tipo', 'APTO')->firstOrFail();
@@ -25,11 +22,6 @@ class PacienteService
             'altura' => $data['altura'] ?? null,
             'aptitud_id' => $aptitud->id,
         ]);
-    }
-
-    public function findByDni(string $dni): Paciente
-    {
-        return Paciente::where('dni', $dni)->firstOrFail();
     }
 
     /**
@@ -53,16 +45,7 @@ class PacienteService
             })
             ->orderBy('apellido')
             ->orderBy('nombre')
-            ->paginate($this->perPage($filters['per_page'] ?? null));
-    }
-
-    private function perPage(mixed $requested): int
-    {
-        if (! is_numeric($requested)) {
-            return self::DEFAULT_PER_PAGE;
-        }
-
-        return max(1, min((int) $requested, self::MAX_PER_PAGE));
+            ->paginate(Paginacion::perPage($filters['per_page'] ?? null));
     }
 
     public function update(Paciente $paciente, array $data): Paciente

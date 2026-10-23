@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Turno\IndexTurnoRequest;
 use App\Http\Requests\Turno\StoreTurnoRequest;
 use App\Http\Requests\Turno\UpdateTurnoRequest;
 use App\Http\Resources\TurnoResource;
 use App\Models\Turno;
 use App\Services\TurnoService;
-use Illuminate\Http\Request;
 
 class TurnoController
 {
@@ -15,36 +15,25 @@ class TurnoController
         private TurnoService $turnoService
     ) {}
 
-    public function index(Request $request)
+    public function index(IndexTurnoRequest $request)
     {
-        $request->validate([
-            'paciente_id' => ['nullable', 'integer'],
-            'fecha' => ['nullable', 'date_format:Y-m-d'],
-            'desde' => ['nullable', 'date_format:Y-m-d'],
-        ]);
-
-        $turnos = $this->turnoService->list($request->only(['paciente_id', 'fecha', 'desde']));
+        $turnos = $this->turnoService->list($request->validated());
 
         return response()->json(TurnoResource::collection($turnos));
     }
 
+    /** Rule conflicts surface as RuleWarningsException (409). */
     public function store(StoreTurnoRequest $request)
     {
-        $result = $this->turnoService->create($request->validated());
+        $turno = $this->turnoService->create($request->validated());
 
-        // Si el Service detectó violación sin forzar, devolver 409 con warning
-        if (is_array($result) && ($result['warning'] ?? false)) {
-            return response()->json($result, 409);
-        }
+        $turno->load(['paciente', 'sede', 'tipoDonacion']);
 
-        $result->load(['paciente', 'sede', 'tipoDonacion']);
-
-        return response()->json(new TurnoResource($result), 201);
+        return response()->json(new TurnoResource($turno), 201);
     }
 
-    public function update(string $id, UpdateTurnoRequest $request)
+    public function update(Turno $turno, UpdateTurnoRequest $request)
     {
-        $turno = Turno::findOrFail($id);
         $turno = $this->turnoService->update($turno, $request->validated());
 
         $turno->load(['paciente', 'sede', 'tipoDonacion']);

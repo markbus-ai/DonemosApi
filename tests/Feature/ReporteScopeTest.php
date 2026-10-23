@@ -171,6 +171,18 @@ class ReporteScopeTest extends TestCase
         $this->getJson('/api/reportes/sedes')->assertStatus(403);
     }
 
+    public function test_forbidden_comes_before_validation_with_the_exact_body(): void
+    {
+        $this->actingAs_($this->usuario('staff', $this->central->id));
+
+        $this->getJson('/api/reportes/resumen?sede_id=abc')
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Tu rol no permite ver estadísticas.');
+        $this->getJson('/api/reportes/sedes')
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Tu rol no permite ver estadísticas.');
+    }
+
     public function test_sedes_lists_visible_sedes_for_the_picker(): void
     {
         $this->actingAs_($this->usuario('admin-zona', null, $this->costa->id));

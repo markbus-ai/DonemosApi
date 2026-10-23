@@ -17,10 +17,8 @@ class AutoexclusionController
      * Record a self-exclusion by donation number. The response intentionally
      * omits any patient identity.
      */
-    public function store(string $numero, StoreAutoexclusionRequest $request): JsonResponse
+    public function store(Donacion $donacion, StoreAutoexclusionRequest $request): JsonResponse
     {
-        $donacion = Donacion::where('numero_donacion', $numero)->firstOrFail();
-
         $autoexclusion = $this->donacionService->marcarAutoexclusion($donacion, $request->validated());
 
         return response()->json([

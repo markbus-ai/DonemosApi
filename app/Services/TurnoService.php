@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
-use App\Enums\WarningCode;
 use App\Enums\RecordatorioTipo;
 use App\Enums\TurnoEstado;
+use App\Enums\WarningCode;
+use App\Exceptions\RuleWarningsException;
 use App\Models\Sede;
 use App\Models\Turno;
 use App\Rules\CapacidadRules;
@@ -39,24 +40,24 @@ class TurnoService
     }
 
     /**
-     * Crea un turno. Si viola reglas (vía TurnoRules: intervalos por DonationRules + turnos PENDIENTE)
-     * y no viene forzar=true, retorna array con warning para que el Controller responda 409.
-     * Si viene forzar=true, crea turno + autorización en transacción.
+     * Book a turno. Rule warnings (TurnoRules: donation intervals through
+     * DonationRules plus existing pending turnos) stop the booking unless
+     * `forzar` is set, in which case the turno and its audited authorization
+     * are written together. Capacity and a taken slot are never overridable.
      *
-     * Delega validación a TurnoRules (que inyecta DonationRules internamente).
+     * With `tipo_id` only that type is evaluated; without it PLASMA and
+     * PLAQUETAS are evaluated and their warnings merged.
      *
-     * Soporte opcional tipo_id: si viene, evalúa solo ese tipo; si no, evalúa PLASMA y PLAQUETAS y mergea warnings.
-     *
-     * @return Turno|array{warning: bool, code: string, message: string, warnings?: array}
+     * @throws RuleWarningsException rendered as the 409 envelope.
      */
-    public function create(array $data): Turno|array
+    public function create(array $data): Turno
     {
         // Resolve the sede up front: the capacity gate needs it, and it must be
         // pinned into the payload so the row and the sum agree on the site.
         $sedeId = SedeOperativa::resolver($data)->id;
 
         try {
-            $result = DB::transaction(function () use ($data, $sedeId) {
+            $turno = DB::transaction(function () use ($data, $sedeId) {
                 // Serialise bookings per sede so two requests cannot both pass the capacity check.
                 RowLock::lock(Sede::class, $sedeId);
 
@@ -64,26 +65,21 @@ class TurnoService
             });
         } catch (UniqueConstraintViolationException) {
             // Concurrent booking of the same slot lost the race.
-            return $this->horarioOcupado();
+            throw $this->horarioOcupado();
         }
 
-        if ($result instanceof Turno) {
-            $this->recordatorios->programar($result, RecordatorioTipo::Confirmacion);
-        }
+        $this->recordatorios->programar($turno, RecordatorioTipo::Confirmacion);
 
-        return $result;
+        return $turno;
     }
 
     /**
      * Capacity, slot and rule checks plus the insert; runs under the sede lock.
-     *
-     * @return Turno|array{warning: bool, code: string, message: string, warnings?: array}
      */
-    private function book(array $data, int $sedeId): Turno|array
+    private function book(array $data, int $sedeId): Turno
     {
         // Capacity is a blocking hard limit: it preempts the warnings path so
-        // `forzar` can never bypass it. Over-limit returns the same 409 envelope
-        // the Controller already maps.
+        // `forzar` can never bypass it.
         $capacidad = $this->capacidadRules->check(
             $sedeId,
             $data['fecha'],
@@ -91,7 +87,7 @@ class TurnoService
         );
 
         if (! $capacidad['allowed']) {
-            return $this->capacidadExcedida($capacidad);
+            throw $this->capacidadExcedida($capacidad);
         }
 
         // A taken slot is a hard conflict (unique index), never overridable;
@@ -101,18 +97,13 @@ class TurnoService
             || $activo()->where('paciente_id', $data['paciente_id'])->exists();
 
         if ($slotTomado) {
-            return $this->horarioOcupado();
+            throw $this->horarioOcupado();
         }
 
         $warnings = $this->resolveWarnings($data);
 
         if (!empty($warnings) && empty($data['forzar'])) {
-            return [
-                'warning' => true,
-                'code' => $warnings[0]['code'],
-                'message' => $warnings[0]['message'],
-                'warnings' => $warnings,
-            ];
+            throw RuleWarningsException::turno($warnings);
         }
 
         return $this->persist($data, $warnings, $sedeId);
@@ -166,45 +157,28 @@ class TurnoService
         return $turno->fresh();
     }
 
-    /**
-     * Build the blocking capacity result. Mirrors the warnings 409 envelope so
-     * the Controller needs no new branch; `forzar` is intentionally absent from
-     * the message because this gate is not overridable.
-     *
-     * @param  array{used: int, limite: int, candidate: int, available: int}  $capacidad
-     * @return array{warning: true, code: string, message: string, warnings: array}
-     */
-    private function horarioOcupado(): array
+    private function horarioOcupado(): RuleWarningsException
     {
-        return [
-            'warning' => true,
-            'code' => WarningCode::HorarioOcupado->value,
-            'message' => 'Ese horario ya está ocupado. Elegí otro horario.',
-            'warnings' => [[
-                'code' => WarningCode::HorarioOcupado->value,
-                'message' => 'Ese horario ya está ocupado. Elegí otro horario.',
-            ]],
-        ];
+        return RuleWarningsException::turnoBloqueado(
+            WarningCode::HorarioOcupado->value,
+            'Ese horario ya está ocupado. Elegí otro horario.',
+        );
     }
 
-    private function capacidadExcedida(array $capacidad): array
+    /**
+     * The capacity gate is not overridable, so `forzar` is intentionally
+     * absent from the message.
+     *
+     * @param  array{used: int, limite: int, candidate: int, available: int}  $capacidad
+     */
+    private function capacidadExcedida(array $capacidad): RuleWarningsException
     {
-        $message = sprintf(
+        return RuleWarningsException::turnoBloqueado(WarningCode::CapacidadExcedida->value, sprintf(
             'CAPACIDAD_EXCEDIDA: la sede alcanzó el límite diario (%d min); turno de %d min, %d min disponibles.',
             $capacidad['limite'],
             $capacidad['candidate'],
             $capacidad['available'],
-        );
-
-        return [
-            'warning' => true,
-            'code' => WarningCode::CapacidadExcedida->value,
-            'message' => $message,
-            'warnings' => [[
-                'code' => WarningCode::CapacidadExcedida->value,
-                'message' => $message,
-            ]],
-        ];
+        ));
     }
 
     /**

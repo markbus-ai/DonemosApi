@@ -13,10 +13,8 @@ class AptitudController
         private AptitudService $aptitudService
     ) {}
 
-    public function update(string $dni, UpdateAptitudRequest $request): JsonResponse
+    public function update(Paciente $paciente, UpdateAptitudRequest $request): JsonResponse
     {
-        $paciente = Paciente::where('dni', $dni)->firstOrFail();
-
         $paciente = $this->aptitudService->update($paciente, $request->validated());
 
         $paciente->load('aptitud');

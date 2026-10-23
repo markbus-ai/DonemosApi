@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\WarningCode;
 use App\Enums\TurnoEstado;
+use App\Exceptions\RuleWarningsException;
 use App\Models\Autoexclusion;
 use App\Models\Donacion;
 use App\Models\HabilitacionPlaqueta;
@@ -18,6 +19,7 @@ use App\Support\NumeroDonacion;
 use App\Support\RowLock;
 use App\Support\SedeOperativa;
 use Carbon\Carbon;
+use App\Support\Paginacion;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -27,10 +29,6 @@ class DonacionService
 {
     public const DESCARTE_CONFIDENCIAL = 'DESCARTE_CONFIDENCIAL';
 
-    public const DEFAULT_PER_PAGE = 15;
-
-    public const MAX_PER_PAGE = 50;
-
     public function __construct(
         private DonationRules $donationRules,
         private ComponentRules $componentRules,
@@ -39,9 +37,14 @@ class DonacionService
     ) {}
 
     /**
-     * @return array{donacion: ?Donacion, warnings: array, allowed: bool}
+     * Register a donation. Rule, clinical and platelet warnings stop it unless
+     * `forzar` is set, in which case it is written with an audited
+     * authorization.
+     *
+     * @throws RuleWarningsException rendered as the 409 envelope.
+     * @throws ValidationException for component or clinical integrity errors.
      */
-    public function create(array $data): array
+    public function create(array $data): Donacion
     {
         $paciente = Paciente::findOrFail($data['paciente_id']);
         $tipo = TipoDonacion::findOrFail($data['tipo_id']);
@@ -74,13 +77,9 @@ class DonacionService
                 $this->plateletWarnings($paciente, $tipo, $fecha),
             );
 
-            // Warnings without an override: nothing is written, the caller answers 409.
+            // Warnings without an override: nothing is written.
             if ($warnings !== [] && empty($data['forzar'])) {
-                return [
-                    'donacion' => null,
-                    'warnings' => $warnings,
-                    'allowed' => false,
-                ];
+                throw RuleWarningsException::donacion($warnings);
             }
 
             if ($warnings !== []) {
@@ -135,11 +134,7 @@ class DonacionService
                 'donacion_actual' => $ciclo['donacion'],
             ]);
 
-            return [
-                'donacion' => $donacion,
-                'warnings' => $warnings,
-                'allowed' => true,
-            ];
+            return $donacion;
         });
     }
 
@@ -168,16 +163,7 @@ class DonacionService
             })
             ->orderByDesc('fecha')
             ->orderByDesc('id')
-            ->paginate($this->perPage($filters['per_page'] ?? null));
-    }
-
-    private function perPage(mixed $requested): int
-    {
-        if (! is_numeric($requested)) {
-            return self::DEFAULT_PER_PAGE;
-        }
-
-        return max(1, min((int) $requested, self::MAX_PER_PAGE));
+            ->paginate(Paginacion::perPage($filters['per_page'] ?? null));
     }
 
     /**
