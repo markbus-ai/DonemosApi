@@ -7,8 +7,11 @@ use App\Models\RecordatorioTurno;
 use App\Models\Turno;
 use App\Support\Hoy;
 use App\Support\TelefonoAR;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -66,15 +69,42 @@ class RecordatorioService
         });
     }
 
+    /** Estados of a message that is queued, going out or already out. */
+    public const ESTADOS_ACTIVOS = ['PENDIENTE', 'ENVIANDO', 'ENVIADO'];
+
     /**
      * Automatic message: at most one per turno and tipo unless the previous
-     * one failed. Returns null when it was already scheduled or sent.
+     * one failed. Returns null when it was already scheduled or sent. The
+     * check and the insert run under a per turno+tipo lock so two concurrent
+     * callers (booking retry, scheduler overlap) cannot both insert.
      */
     public function programar(Turno $turno, string $tipo): ?RecordatorioTurno
     {
-        $existe = $turno->recordatorios()->where('tipo', $tipo)->where('estado', '!=', 'FALLIDO')->exists();
+        try {
+            return Cache::lock("recordatorio:{$turno->id}:{$tipo}", 10)->block(5, function () use ($turno, $tipo) {
+                $existe = $turno->recordatorios()->where('tipo', $tipo)->whereIn('estado', self::ESTADOS_ACTIVOS)->exists();
 
-        return $existe ? null : $this->create($turno, $tipo);
+                return $existe ? null : $this->create($turno, $tipo);
+            });
+        } catch (LockTimeoutException) {
+            // Someone else is scheduling this very message right now.
+            Log::warning('Recordatorio no programado: lock ocupado', ['turno_id' => $turno->id, 'tipo' => $tipo]);
+
+            return null;
+        }
+    }
+
+    /**
+     * A cancelled turno must not get its confirmation or reminder after the
+     * cancellation notice: void whatever is still PENDIENTE. Rows already
+     * claimed by a batch (ENVIANDO) can no longer be stopped.
+     */
+    public function anularPendientes(Turno $turno): int
+    {
+        return $turno->recordatorios()
+            ->whereIn('tipo', [self::CONFIRMACION, self::RECORDATORIO])
+            ->where('estado', 'PENDIENTE')
+            ->update(['estado' => 'FALLIDO', 'error' => 'Turno cancelado antes del envío']);
     }
 
     /**

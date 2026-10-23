@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\WarningCode;
 use App\Models\Autoexclusion;
 use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
@@ -16,8 +17,9 @@ use App\Rules\DonationRules;
 use App\Support\ForcedAuthor;
 use App\Support\Hoy;
 use App\Support\NumeroDonacion;
+use App\Support\RowLock;
 use Carbon\Carbon;
-use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -59,35 +61,36 @@ class DonacionService
             throw ValidationException::withMessages(['signos_clinicos' => $clinical['errors']]);
         }
 
-        $result = $this->donationRules->check($paciente, $tipo, $fecha);
-        $warnings = array_merge(
-            $result['warnings'],
-            $clinical['warnings'],
-            $this->plateletWarnings($paciente, $tipo, $fecha),
-        );
-        $allowed = $warnings === [];
+        // Lock the donor first: the interval rules and the cycle odometer read
+        // the donation history and counters, so two concurrent donations of the
+        // same donor must not both pass the rules or claim the same position.
+        return DB::transaction(function () use ($paciente, $tipo, $fecha, $data, $componentes, $signs, $clinical) {
+            $paciente = RowLock::lock(Paciente::class, $paciente->id);
 
-        // Si hay warnings y no se fuerza, no crear nada. Devolver warnings para 409.
-        if (! $allowed && empty($data['forzar'])) {
-            return [
-                'donacion' => null,
-                'warnings' => $warnings,
-                'allowed' => false,
-            ];
-        }
+            $result = $this->donationRules->check($paciente, $tipo, $fecha);
+            $warnings = array_merge(
+                $result['warnings'],
+                $clinical['warnings'],
+                $this->plateletWarnings($paciente, $tipo, $fecha),
+            );
 
-        // Si hay warnings y se fuerza, crear autorización + donación en transacción
-        return DB::transaction(function () use ($paciente, $tipo, $fecha, $warnings, $allowed, $data, $componentes, $signs) {
-            if (! $allowed && ! empty($data['forzar'])) {
+            // Warnings without an override: nothing is written, the caller answers 409.
+            if ($warnings !== [] && empty($data['forzar'])) {
+                return [
+                    'donacion' => null,
+                    'warnings' => $warnings,
+                    'allowed' => false,
+                ];
+            }
+
+            if ($warnings !== []) {
                 // Rule codes plus the operator's justification.
-                $motivo = trim($this->buildMotivo($warnings).' — '.($data['motivo'] ?? ''), ' —');
-
-                // Fail-closed: only the authenticated staff operator can authorize.
-                $usuarioId = ForcedAuthor::idOrFail();
+                $motivo = trim(WarningCode::describir($warnings).' — '.($data['motivo'] ?? ''), ' —');
 
                 AutorizacionExtraordinaria::create([
                     'paciente_id' => $paciente->id,
-                    'usuario_id' => $usuarioId,
+                    // Fail-closed: only the authenticated staff operator can authorize.
+                    'usuario_id' => ForcedAuthor::idOrFail(),
                     'motivo' => $motivo,
                     'fecha' => now(),
                 ]);
@@ -217,7 +220,7 @@ class DonacionService
 
                 return $autoexclusion;
             });
-        } catch (QueryException) {
+        } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages([
                 'autoexclusion' => ['La donación ya tiene una autoexclusión registrada.'],
             ]);
@@ -363,30 +366,6 @@ class DonacionService
             'code' => 'PLAQUETAS_NO_HABILITADAS',
             'message' => 'PLAQUETAS: el donante no tiene habilitación vigente para aféresis de plaquetas.',
         ]];
-    }
-
-    private function buildMotivo(array $warnings): string
-    {
-        // Genera motivo a partir del code, no del message que se muestra al usuario
-        $codes = array_column($warnings, 'code');
-
-        if (empty($codes)) {
-            return 'Autorización extraordinaria';
-        }
-
-        $map = [
-            'BLOQUEO_DIFERIMIENTO' => 'Diferimiento activo',
-            'INTERVALO_MINIMO' => 'Incumplimiento de intervalo mínimo',
-            'LIMITE_ANUAL' => 'Supera límite anual',
-            'LIMITE_PERIODO' => 'Supera límite del período',
-            'HEMOGLOBINA_BAJA' => 'Hemoglobina baja',
-            'PESO_BAJO' => 'Peso bajo',
-            'PLAQUETAS_NO_HABILITADAS' => 'Plaquetas no habilitadas',
-        ];
-
-        $motivos = array_map(fn ($c) => $map[$c] ?? $c, $codes);
-
-        return implode(' + ', $motivos);
     }
 
     /**

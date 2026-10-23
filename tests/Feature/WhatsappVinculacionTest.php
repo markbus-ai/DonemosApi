@@ -6,6 +6,7 @@ use App\Models\Rol;
 use App\Models\Usuario;
 use App\Services\Whatsapp\WhatsappVinculacion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Process;
@@ -140,5 +141,20 @@ class WhatsappVinculacionTest extends TestCase
 
         $this->assertStringContainsString('state_manager.show_qr_window = lambda', $script);
         $this->assertTrue(app(WhatsappVinculacion::class) instanceof WhatsappVinculacion);
+    }
+
+    public function test_a_second_link_request_while_one_is_starting_is_409(): void
+    {
+        $this->actingAsRol(Usuario::ROL_ADMIN_ZONA);
+        Process::fake(['*' => Process::result(output: "4242\n")]);
+        $otro = Cache::lock('whatsapp:vincular', 30);
+        $this->assertTrue($otro->get());
+
+        $this->postJson('/api/whatsapp/vincular')
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Ya hay una vinculación en curso; escanee el QR actual.');
+
+        Process::assertNothingRan();
+        $otro->release();
     }
 }

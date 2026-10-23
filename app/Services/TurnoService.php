@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\WarningCode;
 use App\Models\AutorizacionExtraordinaria;
 use App\Models\Sede;
 use App\Models\Turno;
 use App\Rules\CapacidadRules;
 use App\Rules\TurnoRules;
 use App\Support\ForcedAuthor;
+use App\Support\RowLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +55,8 @@ class TurnoService
 
         try {
             $result = DB::transaction(function () use ($data, $sedeId) {
-                $this->lockSede($sedeId);
+                // Serialise bookings per sede so two requests cannot both pass the capacity check.
+                RowLock::lock(Sede::class, $sedeId);
 
                 return $this->book($data, $sedeId);
             });
@@ -70,23 +73,7 @@ class TurnoService
     }
 
     /**
-     * Serialise bookings per sede so two requests cannot both pass the
-     * capacity check. SQLite ignores FOR UPDATE, so a no-op write takes the
-     * database write lock instead (others wait up to busy_timeout).
-     */
-    private function lockSede(int $sedeId): void
-    {
-        if (DB::getDriverName() === 'sqlite') {
-            DB::table('sedes')->where('id', $sedeId)->update(['updated_at' => DB::raw('updated_at')]);
-
-            return;
-        }
-
-        Sede::whereKey($sedeId)->lockForUpdate()->first();
-    }
-
-    /**
-     * Capacity, slot and rule checks plus the insert; runs under lockSede().
+     * Capacity, slot and rule checks plus the insert; runs under the sede lock.
      *
      * @return Turno|array{warning: bool, code: string, message: string, warnings?: array}
      */
@@ -150,7 +137,7 @@ class TurnoService
             // Si había violación y el personal forzó, registrar autorización
             if (!empty($warnings) && !empty($data['forzar'])) {
                 // Keep the operator's justification next to the rule codes.
-                $motivo = trim($this->buildMotivo($warnings).' — '.($data['motivo'] ?? ''), ' —');
+                $motivo = trim(WarningCode::describir($warnings).' — '.($data['motivo'] ?? ''), ' —');
 
                 // Fail-closed: only the authenticated staff operator can authorize.
                 $usuarioId = ForcedAuthor::idOrFail();
@@ -181,6 +168,7 @@ class TurnoService
         $turno->update($data);
 
         if ($cancelado) {
+            $this->recordatorios->anularPendientes($turno);
             $this->recordatorios->programar($turno->fresh(), RecordatorioService::CANCELACION);
         }
 
@@ -262,29 +250,5 @@ class TurnoService
         );
 
         return $result['warnings'] ?? [];
-    }
-
-    private function buildMotivo(array $warnings): string
-    {
-        $codes = array_column($warnings, 'code');
-
-        if (empty($codes)) {
-            return 'Autorización extraordinaria';
-        }
-
-        $map = [
-            'BLOQUEO_DIFERIMIENTO' => 'Diferimiento activo',
-            'INTERVALO_MINIMO' => 'Incumplimiento de intervalo mínimo',
-            'LIMITE_ANUAL' => 'Supera límite anual',
-            'LIMITE_PERIODO' => 'Supera límite del período',
-            'WARNING_INTERVALO' => 'Incumplimiento de intervalo mínimo',
-            'WARNING_LIMITE_ANUAL' => 'Supera límite anual',
-            'WARNING_LIMITE_PERIODO' => 'Supera límite del período',
-            'TURNO_PENDIENTE_EXISTENTE' => 'Paciente ya tiene turno pendiente',
-        ];
-
-        $motivos = array_map(fn ($c) => $map[$c] ?? $c, $codes);
-
-        return implode(' + ', $motivos);
     }
 }

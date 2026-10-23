@@ -3,13 +3,18 @@
 namespace Tests\Feature;
 
 use App\Models\Aptitud;
+use App\Models\Autoexclusion;
 use App\Models\Donacion;
 use App\Models\Paciente;
 use App\Models\Rol;
 use App\Models\TipoDonacion;
 use App\Models\Usuario;
+use App\Services\DonacionService;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -217,6 +222,21 @@ class AutoexclusionTest extends TestCase
         ]);
 
         $this->assertFalse($donacion->fresh()->descartada);
+    }
+
+    public function test_a_database_failure_is_not_reported_as_a_duplicate(): void
+    {
+        $donacion = $this->donacion();
+        Schema::drop('componentes_donacion');
+
+        try {
+            app(DonacionService::class)->marcarAutoexclusion($donacion, ['motivo' => 'Prueba']);
+            $this->fail('A non-unique database error must propagate.');
+        } catch (QueryException $e) {
+            $this->assertNotInstanceOf(UniqueConstraintViolationException::class, $e);
+        }
+
+        $this->assertSame(0, Autoexclusion::count());
     }
 
     public function test_unknown_donation_number_returns_404(): void

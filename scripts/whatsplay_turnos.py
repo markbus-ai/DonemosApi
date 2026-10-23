@@ -34,6 +34,9 @@ state_manager.update_qr_code = lambda *_args, **_kwargs: None
 state_manager.close_qr_window = lambda *_args, **_kwargs: None
 
 
+NO_VINCULADA = "La sesión de WhatsApp no está vinculada; vincúlela desde la app."
+
+
 def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
 
@@ -137,9 +140,22 @@ async def lote(args) -> int:
     resultados = {str(m["id"]): "WhatsApp no inició sesión" for m in mensajes}
     client = Client(auth=LocalProfileAuth(data_dir=args.session), headless=not args.headed)
     trace(client)
+    sesion_iniciada = asyncio.Event()
+    tasks: list[asyncio.Task] = []
+
+    def fallar_pendientes(motivo: str) -> None:
+        """Record a failure only for messages not sent yet; None means sent."""
+        for key, value in resultados.items():
+            if value is not None:
+                resultados[key] = motivo
 
     @client.event("on_logged_in")
     async def on_logged_in():
+        sesion_iniciada.set()
+        # Logged in: the QR probe has nothing left to detect.
+        for task in tasks:
+            if task.get_name() == "sondeo":
+                task.cancel()
         for m in mensajes:
             try:
                 # Phone numbers need open_via_url=True (skill gotcha).
@@ -154,25 +170,23 @@ async def lote(args) -> int:
 
     @client.event("on_qr")
     async def on_qr(_qr):
-        for key in resultados:
-            resultados[key] = "La sesión de WhatsApp no está vinculada; vincúlela desde la app."
+        fallar_pendientes(NO_VINCULADA)
         await client.stop()
 
     @client.event("on_error")
     async def on_error(error):
-        for key, value in resultados.items():
-            if value is not None:
-                resultados[key] = str(error)
+        fallar_pendientes(str(error))
         await client.stop()
 
     async def sondeo():
         # A QR means the session is not linked: fail fast instead of hanging.
-        while True:
+        while not sesion_iniciada.is_set():
             await asyncio.sleep(3)
+            if sesion_iniciada.is_set():
+                return
             estado, _qr = await sondear_pagina(client)
             if estado == "qr":
-                for key in resultados:
-                    resultados[key] = "La sesión de WhatsApp no está vinculada; vincúlela desde la app."
+                fallar_pendientes(NO_VINCULADA)
                 await client.stop()
                 return
 
@@ -181,7 +195,8 @@ async def lote(args) -> int:
         log("lote: tiempo agotado")
         await client.stop()
 
-    tasks = [asyncio.create_task(sondeo()), asyncio.create_task(limite())]
+    tasks.append(asyncio.create_task(sondeo(), name="sondeo"))
+    tasks.append(asyncio.create_task(limite(), name="limite"))
     await client.start()
     for task in tasks:
         task.cancel()

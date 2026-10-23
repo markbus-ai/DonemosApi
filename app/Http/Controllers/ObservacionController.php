@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Observacion\StoreObservacionRequest;
+use App\Models\Observacion;
 use App\Models\Paciente;
 use App\Services\ObservacionService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 
 class ObservacionController
@@ -26,7 +28,28 @@ class ObservacionController
     {
         $paciente = Paciente::where('dni', $dni)->firstOrFail();
 
-        $observacion = $paciente->observaciones()->firstOrFail();
+        $this->observacionService->delete($this->observacionService->latestFor($paciente));
+
+        return response()->json(null, 204);
+    }
+
+    /** Remove one observation by id. */
+    public function destroyById(Observacion $observacion): JsonResponse
+    {
+        $this->observacionService->delete($observacion);
+
+        return response()->json(null, 204);
+    }
+
+    /**
+     * Remove one observation of the given patient; 404 when the observation
+     * belongs to someone else.
+     */
+    public function destroyForPaciente(Paciente $paciente, Observacion $observacion): JsonResponse
+    {
+        if ((int) $observacion->paciente_id !== (int) $paciente->id) {
+            throw (new ModelNotFoundException)->setModel(Observacion::class, [$observacion->id]);
+        }
 
         $this->observacionService->delete($observacion);
 
