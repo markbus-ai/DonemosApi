@@ -29,7 +29,15 @@ class AppServiceProvider extends ServiceProvider
             $username = $request->input('username');
             $key = Str::lower(is_string($username) ? $username : '').'|'.$request->ip();
 
-            return Limit::perMinute(5)->by($key);
+            // Only rejected attempts count, so normal logins never lock anyone out.
+            return Limit::perMinute(5)
+                ->by($key)
+                ->after(fn ($response) => $response->getStatusCode() === 401)
+                ->response(fn (Request $request, array $headers) => response()->json(
+                    ['message' => 'Demasiados intentos fallidos. Esperá un minuto y volvé a intentar.'],
+                    429,
+                    $headers,
+                ));
         });
     }
 }

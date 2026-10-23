@@ -156,6 +156,32 @@ class AuthTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
+    public function test_successful_logins_do_not_count_toward_the_lockout(): void
+    {
+        $this->makeUsuario('AD', '1234');
+
+        $this->postJson('/api/auth/login', ['username' => 'AD', 'password' => '1234'])->assertOk();
+
+        for ($attempt = 0; $attempt < 4; $attempt++) {
+            $this->postJson('/api/auth/login', ['username' => 'AD', 'password' => '9999'])->assertStatus(401);
+        }
+
+        $this->postJson('/api/auth/login', ['username' => 'AD', 'password' => '1234'])->assertOk();
+    }
+
+    public function test_lockout_message_is_spanish(): void
+    {
+        $this->makeUsuario('AD', '1234');
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/auth/login', ['username' => 'AD', 'password' => '9999']);
+        }
+
+        $this->postJson('/api/auth/login', ['username' => 'AD', 'password' => '1234'])
+            ->assertStatus(429)
+            ->assertJsonPath('message', 'Demasiados intentos fallidos. Esperá un minuto y volvé a intentar.');
+    }
+
     public function test_me_returns_authenticated_user_without_password_hash(): void
     {
         $usuario = $this->makeUsuario('AD', '1234');
