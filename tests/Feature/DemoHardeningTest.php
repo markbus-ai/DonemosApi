@@ -190,6 +190,16 @@ class DemoHardeningTest extends TestCase
             ->assertJsonValidationErrors('dni');
     }
 
+    public function test_show_includes_aptitud_and_keeps_raw_fields(): void
+    {
+        $paciente = $this->paciente();
+
+        $this->getJson('/api/pacientes/'.$paciente->dni)
+            ->assertOk()
+            ->assertJsonPath('aptitud_id', $paciente->aptitud_id)
+            ->assertJsonPath('aptitud.tipo', 'APTO');
+    }
+
     public function test_turno_state_transitions_are_one_way(): void
     {
         $turno = Turno::create([

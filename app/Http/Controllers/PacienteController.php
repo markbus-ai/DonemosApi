@@ -32,8 +32,13 @@ class PacienteController
     public function show(string $dni)
     {
         $paciente = $this->pacienteService->findByDni($dni);
+        $raw = $paciente->toArray();
 
-        return response()->json($paciente);
+        // Additive: keep the raw fields clients already read (aptitud_id, ...)
+        // and add aptitud/activeDeferral in the same shape as the list.
+        $resource = (new PacienteResource($paciente->load(['aptitud', 'activeDeferral'])))->resolve();
+
+        return response()->json([...$raw, ...$resource]);
     }
 
     public function store(StorePacienteRequest $request)
