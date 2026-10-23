@@ -6,14 +6,11 @@ use App\Models\Aptitud;
 use App\Models\AutorizacionExtraordinaria;
 use App\Models\Donacion;
 use App\Models\Paciente;
-use App\Models\Rol;
 use App\Models\Sede;
 use App\Models\TipoDonacion;
-use App\Models\Usuario;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
-use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\ActsAsStaff;
 use Tests\TestCase;
 
 /**
@@ -22,7 +19,7 @@ use Tests\TestCase;
  */
 class AutorizacionMotivoTest extends TestCase
 {
-    use RefreshDatabase;
+    use ActsAsStaff, RefreshDatabase;
 
     private Sede $sede;
 
@@ -35,24 +32,12 @@ class AutorizacionMotivoTest extends TestCase
         $this->sede = Sede::firstOrCreate(['nombre' => 'Sede Central'], ['activa' => true]);
         $this->sede->update(['codigo_localidad' => '1']);
 
-        Sanctum::actingAs(Usuario::create([
-            'username' => 'staff_'.uniqid(),
-            'password_hash' => Hash::make('1234'),
-            'rol_id' => Rol::firstOrCreate(['nombre' => 'staff'])->id,
-            'sede_id' => $this->sede->id,
-        ]), ['*'], 'staff');
+        $this->actingAsStaff($this->sede);
     }
 
     private function paciente(string $aptitud = 'APTO', string $sexo = 'F'): Paciente
     {
-        return Paciente::create([
-            'dni' => (string) fake()->unique()->numerify('########'),
-            'nombre' => 'Ana',
-            'apellido' => 'Gomez',
-            'telefono' => '2254000000',
-            'sexo' => $sexo,
-            'aptitud_id' => Aptitud::firstOrCreate(['tipo' => $aptitud])->id,
-        ]);
+        return Paciente::factory()->create(['telefono' => '2254000000', 'sexo' => $sexo, 'aptitud_id' => Aptitud::firstOrCreate(['tipo' => $aptitud])->id]);
     }
 
     private function tipo(string $codigo): TipoDonacion

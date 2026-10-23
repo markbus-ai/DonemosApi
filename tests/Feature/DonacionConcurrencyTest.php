@@ -4,15 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Aptitud;
 use App\Models\Paciente;
-use App\Models\Rol;
 use App\Models\Sede;
 use App\Models\TipoDonacion;
-use App\Models\Usuario;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\ActsAsStaff;
 use Tests\TestCase;
 
 /**
@@ -22,7 +19,7 @@ use Tests\TestCase;
  */
 class DonacionConcurrencyTest extends TestCase
 {
-    use RefreshDatabase;
+    use ActsAsStaff, RefreshDatabase;
 
     private Paciente $paciente;
 
@@ -45,12 +42,7 @@ class DonacionConcurrencyTest extends TestCase
             'aptitud_id' => Aptitud::firstOrCreate(['tipo' => 'APTO'])->id,
         ]);
 
-        Sanctum::actingAs(Usuario::create([
-            'username' => 'staff_'.uniqid(),
-            'password_hash' => Hash::make('1234'),
-            'rol_id' => Rol::firstOrCreate(['nombre' => 'staff'])->id,
-            'sede_id' => $sede->id,
-        ]), ['*'], 'staff');
+        $this->actingAsStaff($sede);
     }
 
     /**

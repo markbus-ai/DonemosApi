@@ -6,11 +6,8 @@ use App\Models\Aptitud;
 use App\Models\Motivo;
 use App\Models\Observacion;
 use App\Models\Paciente;
-use App\Models\Rol;
-use App\Models\Usuario;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
-use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\ActsAsStaff;
 use Tests\TestCase;
 
 /**
@@ -19,7 +16,7 @@ use Tests\TestCase;
  */
 class ObservacionDeletionTest extends TestCase
 {
-    use RefreshDatabase;
+    use ActsAsStaff, RefreshDatabase;
 
     private Motivo $motivo;
 
@@ -30,22 +27,12 @@ class ObservacionDeletionTest extends TestCase
         $this->travelTo('2026-10-22 13:00:00');
         $this->motivo = Motivo::firstOrCreate(['nombre' => 'Prueba']);
 
-        Sanctum::actingAs(Usuario::create([
-            'username' => 'staff_'.uniqid(),
-            'password_hash' => Hash::make('1234'),
-            'rol_id' => Rol::firstOrCreate(['nombre' => 'staff'])->id,
-        ]), ['*'], 'staff');
+        $this->actingAsStaff();
     }
 
     private function paciente(): Paciente
     {
-        return Paciente::create([
-            'dni' => (string) fake()->unique()->numerify('########'),
-            'nombre' => 'Ana',
-            'apellido' => 'Gomez',
-            'telefono' => '2254000000',
-            'aptitud_id' => Aptitud::firstOrCreate(['tipo' => 'APTO_OBSERVACION'])->id,
-        ]);
+        return Paciente::factory()->create(['telefono' => '2254000000', 'aptitud_id' => Aptitud::firstOrCreate(['tipo' => 'APTO_OBSERVACION'])->id]);
     }
 
     private function observacion(Paciente $paciente, string $desde, ?string $hasta = null): Observacion

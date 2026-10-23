@@ -3,13 +3,10 @@
 namespace Tests\Feature;
 
 use App\Jobs\EnviarLoteWhatsApp;
-use App\Models\Aptitud;
 use App\Models\Paciente;
 use App\Models\RecordatorioTurno;
-use App\Models\Rol;
 use App\Models\Sede;
 use App\Models\Turno;
-use App\Models\Usuario;
 use App\Services\RecordatorioService;
 use App\Services\Whatsapp\WhatsappSender;
 use Illuminate\Database\QueryException;
@@ -18,11 +15,10 @@ use Illuminate\Queue\MaxAttemptsExceededException;
 use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
-use Laravel\Sanctum\Sanctum;
 use RuntimeException;
+use Tests\Concerns\ActsAsStaff;
 use Tests\TestCase;
 
 /**
@@ -32,7 +28,7 @@ use Tests\TestCase;
  */
 class WhatsappEnvioLoteTest extends TestCase
 {
-    use RefreshDatabase;
+    use ActsAsStaff, RefreshDatabase;
 
     private Sede $sede;
 
@@ -47,23 +43,12 @@ class WhatsappEnvioLoteTest extends TestCase
         config(['app.business_timezone' => 'America/Argentina/Buenos_Aires', 'whatsapp.driver' => 'log', 'whatsapp.numero_prueba' => null]);
 
         $this->sede = Sede::firstOrCreate(['nombre' => 'Sede Central'], ['activa' => true]);
-        Sanctum::actingAs(Usuario::create([
-            'username' => 'staff_'.uniqid(),
-            'password_hash' => Hash::make('1234'),
-            'rol_id' => Rol::firstOrCreate(['nombre' => 'staff'])->id,
-            'sede_id' => $this->sede->id,
-        ]), ['*'], 'staff');
+        $this->actingAsStaff($this->sede);
     }
 
     private function turno(string $fecha = '2026-10-23', string $hora = '09:00'): Turno
     {
-        $paciente = Paciente::create([
-            'dni' => (string) fake()->unique()->numerify('########'),
-            'nombre' => 'Ana',
-            'apellido' => 'Gomez',
-            'telefono' => '2254 123456',
-            'aptitud_id' => Aptitud::firstOrCreate(['tipo' => 'APTO'])->id,
-        ]);
+        $paciente = Paciente::factory()->create(['telefono' => '2254 123456']);
 
         return Turno::create(['paciente_id' => $paciente->id, 'sede_id' => $this->sede->id, 'fecha' => $fecha, 'hora' => $hora, 'estado' => 'PENDIENTE']);
     }
