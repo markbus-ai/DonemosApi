@@ -14,9 +14,11 @@ class StoreTurnoRequest extends FormRequest
 
     public function rules(): array
     {
+        $hoy = now(config('app.business_timezone'));
+
         return [
             'paciente_id' => ['required', 'integer', 'exists:pacientes,id'],
-            'fecha' => ['required', 'date_format:Y-m-d', 'after_or_equal:today', 'before_or_equal:+1 year'],
+            'fecha' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$hoy->toDateString(), 'before_or_equal:'.$hoy->copy()->addYear()->toDateString()],
             'hora' => ['required', 'date_format:H:i'],
             'tipo_id' => ['sometimes', 'integer', 'exists:tipos_donacion,id'],
 

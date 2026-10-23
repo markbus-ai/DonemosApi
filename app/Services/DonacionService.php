@@ -39,7 +39,7 @@ class DonacionService
     {
         $paciente = Paciente::findOrFail($data['paciente_id']);
         $tipo = TipoDonacion::findOrFail($data['tipo_id']);
-        $fecha = $data['fecha'] ?? now()->toDateString();
+        $fecha = $data['fecha'] ?? now(config('app.business_timezone'))->toDateString();
 
         // Component-shape errors (empty / non-catalog / over-limit) are 422 and
         // preempt domain warnings, so validate before DonationRules runs.

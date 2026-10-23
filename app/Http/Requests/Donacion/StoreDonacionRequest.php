@@ -51,7 +51,7 @@ class StoreDonacionRequest extends FormRequest
             'componentes.*.vencimiento' => ['sometimes', 'nullable', 'date'],
             'componentes.*.peso' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             // Back-dated entry is allowed (paper records); future dates are not.
-            'fecha' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:today'],
+            'fecha' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:'.now(config('app.business_timezone'))->toDateString()],
             // Manual cycle metadata; optional and never inferred. `donacion` is
             // the ordinal within the serie.
             // An override needs all three values; a partial one would be ignored.

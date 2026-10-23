@@ -126,6 +126,20 @@ class DemoHardeningTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors('fecha');
     }
 
+    public function test_today_follows_the_hemocentro_timezone(): void
+    {
+        // 22:30 in Argentina is already the next day in UTC.
+        config(['app.business_timezone' => 'America/Argentina/Buenos_Aires']);
+        $this->travelTo('2026-10-23 01:30:00');
+        $paciente = $this->paciente();
+
+        $this->postJson('/api/turnos', ['paciente_id' => $paciente->id, 'fecha' => '2026-10-22', 'hora' => '23:00'])
+            ->assertCreated();
+        $this->donar($paciente, ['fecha' => '2026-10-23'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('fecha');
+    }
+
     public function test_no_apto_donor_needs_forzar(): void
     {
         $paciente = $this->paciente(['aptitud_id' => Aptitud::firstOrCreate(['tipo' => 'NO_APTO'])->id]);

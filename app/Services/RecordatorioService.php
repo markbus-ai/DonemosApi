@@ -29,7 +29,7 @@ class RecordatorioService
      */
     public function create(Turno $turno): RecordatorioTurno
     {
-        if ($turno->estado !== 'PENDIENTE' || $turno->fecha->lt(today())) {
+        if ($turno->estado !== 'PENDIENTE' || $turno->fecha->toDateString() < now(config('app.business_timezone'))->toDateString()) {
             throw ValidationException::withMessages([
                 'turno' => 'Solo se envían recordatorios de turnos pendientes y futuros.',
             ]);

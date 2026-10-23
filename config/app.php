@@ -67,6 +67,10 @@ return [
 
     'timezone' => 'UTC',
 
+    // Local calendar day of the hemocentro. Storage stays in UTC; only
+    // "today" checks (bookable dates, donation dates) use this zone.
+    'business_timezone' => env('APP_BUSINESS_TIMEZONE', 'America/Argentina/Buenos_Aires'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
