@@ -18,6 +18,13 @@ class PacienteSexoAlturaTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Exercises older migrations directly; the later guards would block them.
+        $this->withoutDatabaseGuards();
+    }
+
     private const MIGRATION = 'migrations/2026_10_03_000013_add_sexo_altura_to_pacientes_table.php';
 
     private function migration(): object

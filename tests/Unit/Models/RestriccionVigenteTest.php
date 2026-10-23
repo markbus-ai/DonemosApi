@@ -90,6 +90,10 @@ class RestriccionVigenteTest extends TestCase
 
     public function test_legacy_null_hasta_row_matches(): void
     {
+        // Legacy-shaped rows are now rejected by the DB guard; the scope
+        // must still treat them as active if one is ever imported.
+        $this->withoutDatabaseGuards();
+
         $restriccion = $this->restriccion(['desde' => '2026-01-01', 'hasta' => null, 'permanente' => false]);
 
         $this->assertTrue($this->isVigente($restriccion, '2030-01-01'));

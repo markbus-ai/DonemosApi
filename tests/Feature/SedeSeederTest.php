@@ -27,7 +27,7 @@ class SedeSeederTest extends TestCase
     {
         $this->runSeeder();
 
-        $this->assertSame('1', Sede::where('nombre', 'Sede Central')->value('codigo_localidad'));
+        $this->assertSame('001', Sede::where('nombre', 'Sede Central')->value('codigo_localidad'));
         $this->assertSame('003', Sede::where('nombre', 'Pinamar')->value('codigo_localidad'));
         $this->assertSame('030', Sede::where('nombre', 'Mar de Ajó')->value('codigo_localidad'));
         $this->assertSame('004', Sede::where('nombre', 'Madariaga')->value('codigo_localidad'));
@@ -42,7 +42,7 @@ class SedeSeederTest extends TestCase
         $this->assertSame(1, Sede::where('codigo_localidad', '003')->count());
         $this->assertSame(1, Sede::where('codigo_localidad', '030')->count());
         $this->assertSame(1, Sede::where('codigo_localidad', '004')->count());
-        $this->assertSame('1', Sede::where('nombre', 'Sede Central')->value('codigo_localidad'));
+        $this->assertSame('001', Sede::where('nombre', 'Sede Central')->value('codigo_localidad'));
     }
 
     public function test_seeder_keeps_only_the_central_sede_active(): void

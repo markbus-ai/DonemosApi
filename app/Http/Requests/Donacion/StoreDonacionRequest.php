@@ -50,7 +50,7 @@ class StoreDonacionRequest extends FormRequest
             'componentes.*' => ['array'],
             'componentes.*.tipo_id' => ['required', 'integer', 'exists:tipos_donacion,id'],
             'componentes.*.vencimiento' => ['sometimes', 'nullable', 'date'],
-            'componentes.*.peso' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'componentes.*.peso' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:5000'],
             // Back-dated entry is allowed (paper records); future dates are not.
             'fecha' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:'.Hoy::fecha()],
             // Manual cycle metadata; optional and never inferred. `donacion` is
@@ -76,7 +76,7 @@ class StoreDonacionRequest extends FormRequest
             // Physical-possibility bounds only: they reject impossible readings
             // and never act as clinical thresholds (capture_only stays ungated).
             'hemoglobina' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:30'],
-            'hematocrito' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:100'],
+            'hematocrito' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:99.99'],
             'plaquetas' => ['sometimes', 'nullable', 'integer', 'between:1,5000000'],
             'presion_sistolica' => ['sometimes', 'nullable', 'integer', 'between:1,350'],
             'presion_diastolica' => ['sometimes', 'nullable', 'integer', 'between:1,250', Rule::when($this->filled('presion_sistolica'), ['lt:presion_sistolica'])],

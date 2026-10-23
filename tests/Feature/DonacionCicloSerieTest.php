@@ -30,6 +30,8 @@ class DonacionCicloSerieTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Exercises older migrations directly; the later guards would block them.
+        $this->withoutDatabaseGuards();
 
         $rol = Rol::firstOrCreate(['nombre' => 'ADMIN']);
         $staff = Usuario::create([

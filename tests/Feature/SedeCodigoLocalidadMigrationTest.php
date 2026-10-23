@@ -15,6 +15,13 @@ class SedeCodigoLocalidadMigrationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Exercises older migrations directly; the later guards would block them.
+        $this->withoutDatabaseGuards();
+    }
+
     private const MIGRATION = 'migrations/2026_10_03_000003_add_codigo_localidad_to_sedes_table.php';
 
     private function migration(): object
@@ -32,7 +39,8 @@ class SedeCodigoLocalidadMigrationTest extends TestCase
     {
         $central = Sede::where('nombre', 'Sede Central')->firstOrFail();
 
-        $this->assertSame('1', $central->codigo_localidad);
+        // The later guards migration normalises codes to three digits.
+        $this->assertSame('001', $central->codigo_localidad);
     }
 
     public function test_codigo_localidad_is_unique(): void

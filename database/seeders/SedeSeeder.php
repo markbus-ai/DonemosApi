@@ -16,7 +16,7 @@ class SedeSeeder extends Seeder
     public function run(): void
     {
         $sedes = [
-            ['nombre' => 'Sede Central', 'codigo_localidad' => '1', 'activa' => true],
+            ['nombre' => 'Sede Central', 'codigo_localidad' => '001', 'activa' => true],
             ['nombre' => 'Pinamar', 'codigo_localidad' => '003', 'activa' => false],
             ['nombre' => 'Mar de Ajó', 'codigo_localidad' => '030', 'activa' => false],
             ['nombre' => 'Madariaga', 'codigo_localidad' => '004', 'activa' => false],

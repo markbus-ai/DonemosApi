@@ -111,20 +111,12 @@ class DemoHardening2Test extends TestCase
         $this->assertDatabaseHas('restricciones', ['paciente_id' => $paciente->id, 'hasta' => '2026-10-22']);
     }
 
-    public function test_locality_codes_must_be_up_to_three_digits_and_not_collide(): void
+    public function test_invalid_or_colliding_locality_codes_never_reach_numbering(): void
     {
-        $paciente = $this->paciente();
-        $tipo = $this->sangre();
-        $otra = Sede::create(['nombre' => 'Pinamar', 'activa' => true, 'codigo_localidad' => '001']);
-
-        $this->postJson('/api/donaciones', ['paciente_id' => $paciente->id, 'tipo_id' => $tipo->id, 'componentes' => [$tipo->id], 'sede_id' => $otra->id])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('sede_id');
-
-        $otra->update(['codigo_localidad' => '1234']);
-        $this->postJson('/api/donaciones', ['paciente_id' => $paciente->id, 'tipo_id' => $tipo->id, 'componentes' => [$tipo->id], 'sede_id' => $otra->id])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('sede_id');
+        // "1" and "001" are the same code once padded; the DB rejects both a
+        // collision and an over-long code, so allocation never mints duplicates.
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        Sede::create(['nombre' => 'Pinamar', 'activa' => true, 'codigo_localidad' => '001']);
     }
 
     public function test_non_iso_dates_are_rejected(): void

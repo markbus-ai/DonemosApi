@@ -18,6 +18,13 @@ class DeferralMigrationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Exercises older migrations directly; the later guards would block them.
+        $this->withoutDatabaseGuards();
+    }
+
     private const MIGRATION = 'migrations/2026_10_02_000001_add_deferral_model.php';
 
     private function migration(): object

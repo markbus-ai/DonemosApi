@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,17 @@ class Sede extends Model
         'activa' => 'boolean',
         'zona_id' => 'integer',
     ];
+
+    /**
+     * Locality codes are exactly three digits ("1" is stored as "001"), so the
+     * unique index also catches codes that would mint the same numbers.
+     */
+    protected function codigoLocalidad(): Attribute
+    {
+        return Attribute::make(
+            set: fn ($value) => $value === null || $value === '' ? null : str_pad((string) $value, 3, '0', STR_PAD_LEFT),
+        );
+    }
 
     public function zona(): BelongsTo
     {
