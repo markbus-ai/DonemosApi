@@ -27,7 +27,7 @@ class WhatsappVinculacionTest extends TestCase
         parent::setUp();
 
         $this->dir = storage_path('framework/testing/whatsapp_'.uniqid());
-        config(['whatsapp.estado_dir' => $this->dir, 'whatsapp.whatsplay.dir' => '/opt/whatsapp-skill']);
+        config(['whatsapp.estado_dir' => $this->dir, 'whatsapp.whatsplay.dir' => sys_get_temp_dir()]);
     }
 
     protected function tearDown(): void
@@ -78,6 +78,25 @@ class WhatsappVinculacionTest extends TestCase
         Process::assertRan(fn ($process) => str_contains(implode(' ', (array) $process->command), 'whatsplay_turnos.py')
             && str_contains(implode(' ', (array) $process->command), 'vincular'));
         $this->assertSame('4242', trim(File::get($this->dir.'/pid')));
+    }
+
+    public function test_a_missing_whatsplay_install_is_reported_not_a_500(): void
+    {
+        $this->actingAsRol(Usuario::ROL_ADMIN_ZONA);
+        config(['whatsapp.whatsplay.dir' => '/no/existe']);
+        Process::fake();
+
+        $this->postJson('/api/whatsapp/vincular')->assertStatus(202)->assertJsonPath('estado', 'error');
+        $this->getJson('/api/whatsapp/estado')->assertOk()->assertJsonPath('estado', 'error');
+        Process::assertNothingRan();
+    }
+
+    public function test_state_without_a_pid_file_is_an_error_not_a_500(): void
+    {
+        $this->actingAsRol(Usuario::ROL_ADMIN_ZONA);
+        $this->escribirEstado(['estado' => 'iniciando', 'qr' => null, 'detalle' => null, 'actualizado' => 1]);
+
+        $this->getJson('/api/whatsapp/estado')->assertOk()->assertJsonPath('estado', 'error');
     }
 
     public function test_the_qr_is_served_while_waiting_for_the_scan(): void

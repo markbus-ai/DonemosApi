@@ -62,17 +62,39 @@ class WhatsappVinculacion
             '--timeout', (string) config('whatsapp.vinculacion_timeout'),
         ])));
 
-        $result = Process::path(config('whatsapp.whatsplay.dir'))
+        $dir = config('whatsapp.whatsplay.dir');
+
+        if (! is_dir($dir)) {
+            return $this->fallar("No se encontró WhatsPlay en {$dir}; configure WHATSPLAY_DIR.");
+        }
+
+        $result = Process::path($dir)
             ->run(['sh', '-c', 'nohup '.$command.' > '.escapeshellarg($this->dir().'/vincular.log').' 2>&1 & echo $!']);
+
+        if (! $result->successful() || ! ctype_digit(trim($result->output()))) {
+            return $this->fallar('No se pudo iniciar la vinculación de WhatsApp.');
+        }
 
         File::put($this->dir().'/pid', trim($result->output()));
 
         return ['estado' => 'iniciando', 'qr' => null, 'detalle' => null, 'actualizado' => time()];
     }
 
+    /**
+     * @return array{estado: string, qr: ?string, detalle: ?string, actualizado: ?int}
+     */
+    private function fallar(string $detalle): array
+    {
+        $estado = ['estado' => 'error', 'qr' => null, 'detalle' => $detalle, 'actualizado' => time()];
+        File::put($this->dir().'/estado.json', json_encode($estado));
+
+        return $estado;
+    }
+
     private function corriendo(): bool
     {
-        $pid = (int) trim((string) @File::get($this->dir().'/pid'));
+        $pidFile = $this->dir().'/pid';
+        $pid = File::exists($pidFile) ? (int) trim(File::get($pidFile)) : 0;
 
         return $pid > 0 && (function_exists('posix_kill') ? posix_kill($pid, 0) : File::exists("/proc/{$pid}"));
     }

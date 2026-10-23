@@ -20,7 +20,8 @@ return [
     'numero_prueba' => env('WHATSAPP_NUMERO_PRUEBA'),
 
     'whatsplay' => [
-        'dir' => env('WHATSPLAY_DIR', env('HOME').'/proyectos/personal/whatsapp-skill'),
+        // HOME is not always exported to PHP (e.g. under `artisan serve`).
+        'dir' => env('WHATSPLAY_DIR') ?: (getenv('HOME') ?: (function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['dir'] : '')).'/proyectos/personal/whatsapp-skill',
         // WhatsApp Web start-up plus the server tick can take a while.
         'timeout' => (int) env('WHATSPLAY_TIMEOUT', 180),
     ],

@@ -6,8 +6,6 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 
 /**
- * Sends through WhatsPlay (whatsplay-automation skill) using the bridge in
- * scripts/whatsplay_turnos.py, run with the skill's uv environment and its
  * only working session. A whole batch shares one browser cold start; the
  * bridge prints "RESULTADOS {id: null|error}".
  */
@@ -26,11 +24,14 @@ class WhatsPlaySender implements WhatsappSender
             $mensajes,
         )));
 
+        // Start-up plus a few seconds per message; the bridge stops itself
+        // slightly earlier so it can still report per-message results.
+        $timeout = config('whatsapp.whatsplay.timeout') + 15 * count($mensajes);
+
         try {
             $result = Process::path(config('whatsapp.whatsplay.dir'))
-                // Start-up plus a few seconds per message.
-                ->timeout(config('whatsapp.whatsplay.timeout') + 15 * count($mensajes))
-                ->run(self::command('lote', ['--input', $input]));
+                ->timeout($timeout + 30)
+                ->run(self::command('lote', ['--input', $input, '--timeout', (string) $timeout]));
         } finally {
             File::delete($input);
         }

@@ -34,6 +34,19 @@ state_manager.update_qr_code = lambda *_args, **_kwargs: None
 state_manager.close_qr_window = lambda *_args, **_kwargs: None
 
 
+def log(msg: str) -> None:
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}", file=sys.stderr, flush=True)
+
+
+def trace(client: Client) -> None:
+    """Log WhatsPlay lifecycle events so a stuck start-up can be diagnosed."""
+    for name in ("on_start", "on_auth", "on_loading", "on_state_change", "on_warning", "on_disconnect"):
+        async def handler(*args, _name=name):
+            log(f"{_name} {' '.join(str(a)[:120] for a in args)}")
+
+        client.event(name)(handler)
+
+
 def write_estado(estado_dir: Path, estado: str, qr: bytes | None = None, detalle: str | None = None) -> None:
     estado_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -47,9 +60,31 @@ def write_estado(estado_dir: Path, estado: str, qr: bytes | None = None, detalle
     tmp.replace(estado_dir / "estado.json")
 
 
+async def sondear_pagina(client: Client) -> tuple[str, bytes | None]:
+    """
+    Read WhatsApp Web directly. WhatsPlay's QR locator matches exact
+    aria-labels that WhatsApp Web no longer uses, so without this the client
+    stays in "connecting" while the page is already showing a QR.
+    Returns ("vinculado", None), ("qr", png) or ("cargando", None).
+    """
+    page = getattr(client, "_page", None)
+    if page is None:
+        return "cargando", None
+    try:
+        if await page.locator("#pane-side").count():
+            return "vinculado", None
+        canvas = page.locator("canvas")
+        if await canvas.count():
+            return "qr", await canvas.first.screenshot()
+    except Exception as e:  # noqa: BLE001 - the page may be navigating
+        log(f"sondeo: {e}")
+    return "cargando", None
+
+
 async def vincular(args) -> int:
     estado_dir = Path(args.estado_dir)
-    client = Client(auth=LocalProfileAuth(data_dir=args.session), headless=True)
+    client = Client(auth=LocalProfileAuth(data_dir=args.session), headless=not args.headed)
+    trace(client)
     write_estado(estado_dir, "iniciando")
     deadline = time.time() + args.timeout
 
@@ -77,16 +112,31 @@ async def vincular(args) -> int:
         write_estado(estado_dir, "vencido", detalle="No se escaneó el QR a tiempo.")
         await client.stop()
 
-    task = asyncio.create_task(watchdog())
+    async def sondeo():
+        ultimo = None
+        while True:
+            await asyncio.sleep(2)
+            estado, qr = await sondear_pagina(client)
+            if estado == "vinculado":
+                write_estado(estado_dir, "vinculado")
+                await client.stop()
+                return
+            if estado == "qr" and qr != ultimo:
+                ultimo = qr
+                write_estado(estado_dir, "esperando_qr", qr)
+
+    tasks = [asyncio.create_task(watchdog()), asyncio.create_task(sondeo())]
     await client.start()
-    task.cancel()
+    for task in tasks:
+        task.cancel()
     return 0
 
 
 async def lote(args) -> int:
     mensajes = json.loads(Path(args.input).read_text())
     resultados = {str(m["id"]): "WhatsApp no inició sesión" for m in mensajes}
-    client = Client(auth=LocalProfileAuth(data_dir=args.session), headless=True)
+    client = Client(auth=LocalProfileAuth(data_dir=args.session), headless=not args.headed)
+    trace(client)
 
     @client.event("on_logged_in")
     async def on_logged_in():
@@ -115,7 +165,26 @@ async def lote(args) -> int:
                 resultados[key] = str(error)
         await client.stop()
 
+    async def sondeo():
+        # A QR means the session is not linked: fail fast instead of hanging.
+        while True:
+            await asyncio.sleep(3)
+            estado, _qr = await sondear_pagina(client)
+            if estado == "qr":
+                for key in resultados:
+                    resultados[key] = "La sesión de WhatsApp no está vinculada; vincúlela desde la app."
+                await client.stop()
+                return
+
+    async def limite():
+        await asyncio.sleep(args.timeout)
+        log("lote: tiempo agotado")
+        await client.stop()
+
+    tasks = [asyncio.create_task(sondeo()), asyncio.create_task(limite())]
     await client.start()
+    for task in tasks:
+        task.cancel()
     print("RESULTADOS " + json.dumps(resultados), flush=True)
     return 0
 
@@ -127,6 +196,8 @@ def main() -> int:
     parser.add_argument("--estado-dir")
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--input")
+    # Some environments never get past "connecting" headless; show the window.
+    parser.add_argument("--headed", action="store_true")
     args = parser.parse_args()
 
     if args.modo == "vincular":
