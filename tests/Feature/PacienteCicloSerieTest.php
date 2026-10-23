@@ -182,8 +182,8 @@ class PacienteCicloSerieTest extends TestCase
 
         $response = $this->patchJson('/api/pacientes/'.$paciente->dni, [
             'ciclo_actual' => 9,
-            'serie_actual' => 9,
-            'donacion_actual' => 9,
+            'serie_actual' => 2,
+            'donacion_actual' => 4,
         ]);
 
         $response->assertStatus(200);

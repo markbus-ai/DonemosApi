@@ -16,6 +16,11 @@ class PacienteController
 
     public function index(Request $request)
     {
+        $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $pacientes = $this->pacienteService->list($request->only(['search', 'per_page']));
 
         // Keep the repo's `response()->json(...)` style while preserving the

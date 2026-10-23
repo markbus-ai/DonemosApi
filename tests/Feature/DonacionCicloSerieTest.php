@@ -202,15 +202,15 @@ class DonacionCicloSerieTest extends TestCase
 
         $response = $this->postJson('/api/donaciones', $this->payload($paciente, $tipo, [
             'ciclo' => 9,
-            'serie' => 9,
-            'donacion' => 9,
+            'serie' => 2,
+            'donacion' => 4,
         ]));
 
         $response->assertStatus(201);
 
         $fresh = $paciente->fresh();
         $this->assertSame(9, $fresh->ciclo_actual);
-        $this->assertSame(9, $fresh->serie_actual);
-        $this->assertSame(9, $fresh->donacion_actual);
+        $this->assertSame(2, $fresh->serie_actual);
+        $this->assertSame(4, $fresh->donacion_actual);
     }
 }

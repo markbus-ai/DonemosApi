@@ -16,7 +16,7 @@ class StoreTurnoRequest extends FormRequest
     {
         return [
             'paciente_id' => ['required', 'integer', 'exists:pacientes,id'],
-            'fecha' => ['required', 'date'],
+            'fecha' => ['required', 'date_format:Y-m-d', 'after_or_equal:today', 'before_or_equal:+1 year'],
             'hora' => ['required', 'date_format:H:i'],
             'tipo_id' => ['sometimes', 'integer', 'exists:tipos_donacion,id'],
 

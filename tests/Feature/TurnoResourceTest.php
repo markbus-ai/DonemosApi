@@ -24,6 +24,13 @@ class TurnoResourceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Fixtures use fixed 2026 dates; turnos cannot be booked in the past.
+        $this->travelTo('2026-05-01 09:00:00');
+    }
+
     private function actingAsStaff(): void
     {
         $rol = Rol::firstOrCreate(['nombre' => 'ADMIN']);

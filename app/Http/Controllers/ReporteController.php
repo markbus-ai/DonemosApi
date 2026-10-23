@@ -16,7 +16,11 @@ class ReporteController
     {
         $sedeIds = $this->sedesVisibles($request->user());
 
-        $request->validate(['sede_id' => ['nullable', 'integer', 'min:1']]);
+        $request->validate([
+            'sede_id' => ['nullable', 'integer', 'min:1'],
+            'desde' => ['nullable', 'date'],
+            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+        ]);
 
         // An explicit sede narrows the scope and must be one the caller may see.
         if ($request->filled('sede_id')) {

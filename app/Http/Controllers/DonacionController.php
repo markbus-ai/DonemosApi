@@ -15,6 +15,14 @@ class DonacionController
 
     public function index(Request $request)
     {
+        $request->validate([
+            'paciente_id' => ['nullable', 'integer'],
+            'desde' => ['nullable', 'date'],
+            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'search' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $donaciones = $this->donacionService->list(
             $request->only(['paciente_id', 'desde', 'hasta', 'search', 'per_page'])
         );

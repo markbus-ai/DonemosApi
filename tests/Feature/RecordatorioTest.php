@@ -34,6 +34,8 @@ class RecordatorioTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Fixtures use fixed 2026 dates; turnos cannot be booked in the past.
+        $this->travelTo('2026-05-01 09:00:00');
         Queue::fake();
         Http::fake();
         $this->staff = $this->staff();

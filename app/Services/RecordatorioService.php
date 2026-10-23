@@ -7,6 +7,7 @@ use App\Models\RecordatorioTurno;
 use App\Models\Turno;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Pre-donation reminder service.
@@ -28,6 +29,12 @@ class RecordatorioService
      */
     public function create(Turno $turno): RecordatorioTurno
     {
+        if ($turno->estado !== 'PENDIENTE' || $turno->fecha->lt(today())) {
+            throw ValidationException::withMessages([
+                'turno' => 'Solo se envían recordatorios de turnos pendientes y futuros.',
+            ]);
+        }
+
         $contenido = $this->render($turno);
 
         return DB::transaction(function () use ($turno, $contenido): RecordatorioTurno {

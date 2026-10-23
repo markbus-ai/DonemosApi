@@ -21,8 +21,8 @@ class UpdatePacienteRequest extends FormRequest
             'altura' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:250'],
             // Manual cycle counters; staff sets or resets them freely.
             'ciclo_actual' => ['sometimes', 'nullable', 'integer', 'min:1'],
-            'serie_actual' => ['sometimes', 'nullable', 'integer', 'min:1'],
-            'donacion_actual' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'serie_actual' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:'.config('ciclo_donacion.series_por_ciclo')],
+            'donacion_actual' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:'.config('ciclo_donacion.donaciones_por_serie')],
         ];
     }
 }

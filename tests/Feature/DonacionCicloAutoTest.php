@@ -27,6 +27,9 @@ class DonacionCicloAutoTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Odometer tests donate repeatedly on one day; the interval rule is
+        // covered elsewhere, so disable it here.
+        config(['donacion_intervalos.min_por_sexo' => []]);
 
         $rol = Rol::firstOrCreate(['nombre' => 'ADMIN']);
         $staff = Usuario::create([
@@ -156,16 +159,18 @@ class DonacionCicloAutoTest extends TestCase
         $this->assertCounters($paciente, 2, 3, 4);
     }
 
-    public function test_partial_cycle_fields_are_not_an_override(): void
+    public function test_partial_cycle_fields_are_rejected(): void
     {
         $tipo = $this->tipo();
         $paciente = $this->paciente();
 
-        // Only one of the three fields -> falls through to the computed branch.
-        $id = $this->donate($paciente, $tipo, ['ciclo' => 9]);
+        // A partial override used to be silently ignored; now it is a 422 so
+        // the operator knows the value was not applied.
+        $this->postJson('/api/donaciones', $this->payload($paciente, $tipo, ['ciclo' => 9]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['serie', 'donacion']);
 
-        $this->assertDonation($id, 1, 1, 1);
-        $this->assertCounters($paciente, 1, 1, 1);
+        $this->assertCounters($paciente, null, null, null);
     }
 
     public function test_config_limits_drive_the_rollover(): void

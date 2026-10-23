@@ -8,9 +8,11 @@ use App\Models\Turno;
 use App\Rules\CapacidadRules;
 use App\Rules\TurnoRules;
 use App\Support\ForcedAuthor;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class TurnoService
 {
@@ -60,6 +62,14 @@ class TurnoService
             return $this->capacidadExcedida($capacidad);
         }
 
+        // A taken slot is a hard conflict (unique index), never overridable.
+        $slotTomado = Turno::where('sede_id', $sedeId)->whereDate('fecha', $data['fecha'])->where('hora', $data['hora'])->exists()
+            || Turno::where('paciente_id', $data['paciente_id'])->whereDate('fecha', $data['fecha'])->where('hora', $data['hora'])->exists();
+
+        if ($slotTomado) {
+            return $this->horarioOcupado();
+        }
+
         $warnings = $this->resolveWarnings($data);
 
         if (!empty($warnings) && empty($data['forzar'])) {
@@ -71,6 +81,16 @@ class TurnoService
             ];
         }
 
+        try {
+            return $this->persist($data, $warnings, $sedeId);
+        } catch (UniqueConstraintViolationException) {
+            // Concurrent booking of the same slot lost the race.
+            return $this->horarioOcupado();
+        }
+    }
+
+    private function persist(array $data, array $warnings, int $sedeId): Turno
+    {
         return DB::transaction(function () use ($data, $warnings, $sedeId) {
             $payload = [
                 'paciente_id' => $data['paciente_id'],
@@ -108,6 +128,13 @@ class TurnoService
 
     public function update(Turno $turno, array $data): Turno
     {
+        // Only a pending turno can be resolved; attended/cancelled are final.
+        if (isset($data['estado']) && $data['estado'] !== $turno->estado && $turno->estado !== 'PENDIENTE') {
+            throw ValidationException::withMessages([
+                'estado' => sprintf('Un turno %s no puede pasar a %s.', $turno->estado, $data['estado']),
+            ]);
+        }
+
         $turno->update($data);
 
         return $turno->fresh();
@@ -121,6 +148,19 @@ class TurnoService
      * @param  array{used: int, limite: int, candidate: int, available: int}  $capacidad
      * @return array{warning: true, code: string, message: string, warnings: array}
      */
+    private function horarioOcupado(): array
+    {
+        return [
+            'warning' => true,
+            'code' => 'HORARIO_OCUPADO',
+            'message' => 'Ese horario ya está ocupado. Elegí otro horario.',
+            'warnings' => [[
+                'code' => 'HORARIO_OCUPADO',
+                'message' => 'Ese horario ya está ocupado. Elegí otro horario.',
+            ]],
+        ];
+    }
+
     private function capacidadExcedida(array $capacidad): array
     {
         $message = sprintf(

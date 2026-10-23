@@ -109,19 +109,19 @@ class DonationIntervalTest extends TestCase
         $this->assertNotContains('WARNING_INTERVALO_SEXO', array_column($result['warnings'], 'code'));
     }
 
-    public function test_unknown_sex_keeps_current_behaviour(): void
+    public function test_unknown_sex_uses_the_strictest_interval(): void
     {
         $tipo = $this->tipo();
         $paciente = $this->paciente(null);
 
-        // 3 months would flag a male and 5 months a female; unknown sex must
-        // never guess, so no sex-interval warning is emitted.
-        $this->donacion($paciente, $tipo, now()->subMonths(3)->toDateString());
+        // 5 months passes the male rule (4) but not the female one (6); unknown
+        // sex must not open a loophole, so the strictest interval applies.
+        $this->donacion($paciente, $tipo, now()->subMonths(5)->toDateString());
 
         $result = (new DonationRules)->check($paciente, $tipo, now()->toDateString());
 
-        $this->assertTrue($result['allowed']);
-        $this->assertNotContains('WARNING_INTERVALO_SEXO', array_column($result['warnings'], 'code'));
+        $this->assertFalse($result['allowed']);
+        $this->assertContains('WARNING_INTERVALO_SEXO', array_column($result['warnings'], 'code'));
     }
 
     public function test_no_previous_donation_has_no_sex_interval_warning(): void

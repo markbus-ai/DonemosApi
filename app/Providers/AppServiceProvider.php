@@ -25,7 +25,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Staff credentials are short (2 initials + 4 digits); lock attempts per username and IP.
         RateLimiter::for('login', function (Request $request) {
-            $key = Str::lower((string) $request->input('username')).'|'.$request->ip();
+            // Runs before validation: a non-string username must not crash the limiter.
+            $username = $request->input('username');
+            $key = Str::lower(is_string($username) ? $username : '').'|'.$request->ip();
 
             return Limit::perMinute(5)->by($key);
         });

@@ -96,7 +96,7 @@ class ApiE2ETest extends TestCase
 
     private function generateDni(): string
     {
-        return (string) random_int(10000000, 99999999).random_int(10, 99);
+        return (string) random_int(10000000, 99999999);
     }
 
     private function activateDeferral(Paciente $paciente, array $overrides = []): Restriccion

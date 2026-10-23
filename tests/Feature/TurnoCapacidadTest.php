@@ -32,6 +32,8 @@ class TurnoCapacidadTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Fixtures use fixed 2026 dates; turnos cannot be booked in the past.
+        $this->travelTo('2026-05-01 09:00:00');
         $this->staff = $this->staff();
         Sanctum::actingAs($this->staff, ['*'], 'staff');
     }
