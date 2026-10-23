@@ -18,7 +18,8 @@ class TurnoService
 {
     public function __construct(
         private TurnoRules $turnoRules,
-        private CapacidadRules $capacidadRules
+        private CapacidadRules $capacidadRules,
+        private RecordatorioService $recordatorios
     ) {}
 
     public function list(array $filters = []): Collection
@@ -51,7 +52,7 @@ class TurnoService
         $sedeId = $this->resolveSedeId($data);
 
         try {
-            return DB::transaction(function () use ($data, $sedeId) {
+            $result = DB::transaction(function () use ($data, $sedeId) {
                 $this->lockSede($sedeId);
 
                 return $this->book($data, $sedeId);
@@ -60,6 +61,12 @@ class TurnoService
             // Concurrent booking of the same slot lost the race.
             return $this->horarioOcupado();
         }
+
+        if ($result instanceof Turno) {
+            $this->recordatorios->programar($result, RecordatorioService::CONFIRMACION);
+        }
+
+        return $result;
     }
 
     /**
@@ -169,7 +176,13 @@ class TurnoService
             ]);
         }
 
+        $cancelado = ($data['estado'] ?? null) === 'CANCELADO' && $turno->estado !== 'CANCELADO';
+
         $turno->update($data);
+
+        if ($cancelado) {
+            $this->recordatorios->programar($turno->fresh(), RecordatorioService::CANCELACION);
+        }
 
         return $turno->fresh();
     }

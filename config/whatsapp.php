@@ -1,0 +1,30 @@
+<?php
+
+/**
+ * WhatsApp delivery for turno messages.
+ *
+ * `driver`:
+ * - `log` (default): nothing leaves the machine; the message is written to the
+ *   log and the row is marked ENVIADO. Safe for demos and tests.
+ * - `whatsplay`: sends through WhatsPlay (whatsplay-automation skill) via
+ *   scripts/whatsplay_turnos.py, with the skill's uv environment and the only
+ *   working session in `whatsplay.dir`/whatsapp_session.
+ *
+ * `numero_prueba`: outside production every message is redirected to this
+ * number; without it, the whatsplay driver refuses to send. Demo phones are
+ * fake and may belong to real people.
+ */
+return [
+    'driver' => env('WHATSAPP_DRIVER', 'log'),
+
+    'numero_prueba' => env('WHATSAPP_NUMERO_PRUEBA'),
+
+    'whatsplay' => [
+        'dir' => env('WHATSPLAY_DIR', env('HOME').'/proyectos/personal/whatsapp-skill'),
+        // WhatsApp Web start-up plus the server tick can take a while.
+        'timeout' => (int) env('WHATSPLAY_TIMEOUT', 180),
+    ],
+
+    // Daily reminder for the next day's pending turnos (hemocentro local time).
+    'recordatorio_hora' => env('WHATSAPP_RECORDATORIO_HORA', '18:00'),
+];

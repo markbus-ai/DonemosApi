@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\Whatsapp\LogWhatsappSender;
+use App\Services\Whatsapp\WhatsappSender;
+use App\Services\Whatsapp\WhatsPlaySender;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -16,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(WhatsappSender::class, fn () => match (config('whatsapp.driver')) {
+            'whatsplay' => new WhatsPlaySender,
+            default => new LogWhatsappSender,
+        });
         //
     }
 

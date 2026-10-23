@@ -19,6 +19,9 @@ class RecordatorioTurno extends Model
         'contenido',
         'intento',
         'sent_at',
+        'tipo',
+        'destino',
+        'error',
     ];
 
     protected $casts = [

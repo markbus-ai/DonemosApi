@@ -2,36 +2,57 @@
 
 namespace App\Jobs;
 
+use App\Models\RecordatorioTurno;
+use App\Services\RecordatorioService;
+use App\Services\Whatsapp\WhatsappSender;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 /**
- * Reminder delivery job.
- *
- * This is a deliberate no-op behind a config gate: no provider is imported and
- * no HTTP call is performed. It exists so scheduling can be observed
- * (Queue::fake) while the real integration stays out of this slice. When
- * `delivery_enabled` is false the job returns immediately.
+ * Delivers one turno message through the configured WhatsApp driver (`log` by
+ * default, `whatsplay` for real sends). One send at a time: WhatsPlay drives a
+ * single WhatsApp Web session. Single attempt; a failure is recorded with its
+ * reason and can be re-sent manually, so a flaky send never double-messages.
  */
 class EnviarRecordatorioWhatsApp implements ShouldQueue
 {
     use Queueable;
 
+    public int $tries = 1;
+
     public function __construct(
         public int $recordatorioId
     ) {}
 
-    public function handle(): void
+    /**
+     * @return array<int, object>
+     */
+    public function middleware(): array
     {
-        if (! config('recordatorio_predonacion.delivery_enabled', false)) {
+        return [(new WithoutOverlapping('whatsplay'))->releaseAfter(30)->expireAfter(600)];
+    }
+
+    public function handle(WhatsappSender $sender, RecordatorioService $service): void
+    {
+        $record = RecordatorioTurno::with('turno.paciente')->find($this->recordatorioId);
+
+        if ($record === null || $record->estado !== 'PENDIENTE') {
             return;
         }
 
-        // Intentionally left without a provider integration. Enabling delivery
-        // is a separate, reviewed change; this job never sends in this slice.
-        Log::info('Recordatorio delivery requested', [
-            'recordatorio_id' => $this->recordatorioId,
-        ]);
+        [$numero, $error] = $service->destino($record);
+
+        if ($numero === null) {
+            $service->markFailed($record, $error);
+
+            return;
+        }
+
+        $error = $sender->send($numero, $record->contenido);
+
+        $error === null
+            ? $service->markSent($record, $numero)
+            : $service->markFailed($record, $error, $numero);
     }
 }
