@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 class Paciente extends Model
 {
@@ -29,6 +30,21 @@ class Paciente extends Model
         'serie_actual',
         'donacion_actual',
     ];
+
+    protected $hidden = ['busqueda'];
+
+    /** Lowercase, accent-free haystack so search behaves the same on every driver. */
+    public static function normalizarBusqueda(string $texto): string
+    {
+        return Str::lower(Str::ascii(trim($texto)));
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Paciente $paciente) {
+            $paciente->busqueda = self::normalizarBusqueda("{$paciente->dni} {$paciente->nombre} {$paciente->apellido}");
+        });
+    }
 
     protected $casts = [
         'altura' => 'decimal:1',

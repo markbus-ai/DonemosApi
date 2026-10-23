@@ -31,7 +31,14 @@ class ZonaSeeder extends Seeder
     {
         $zona = Zona::firstOrCreate(['nombre' => self::ZONA_DEFAULT]);
 
-        $password = env('SEED_ADMIN_PASSWORD', '1234');
+        $password = env('SEED_ADMIN_PASSWORD');
+
+        if ($password === null || $password === '') {
+            if (app()->isProduction()) {
+                throw new \RuntimeException('Set SEED_ADMIN_PASSWORD: default passwords are never seeded in production.');
+            }
+            $password = '1234';
+        }
 
         Usuario::updateOrCreate(
             ['username' => env('SEED_ADMIN_SEDE_USERNAME', 'ADS')],

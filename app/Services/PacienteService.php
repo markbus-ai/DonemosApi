@@ -36,7 +36,7 @@ class PacienteService
      * Paginated patient list for mobile prefetch.
      *
      * Supported filters:
-     * - search: matches dni OR nombre OR apellido (case-insensitive LIKE).
+     * - search: matches dni, nombre or apellido, case- and accent-insensitive.
      * - per_page: page size, default 15, capped at 50.
      *
      * Ordered by apellido then nombre so the list stays stable across pages.
@@ -47,13 +47,9 @@ class PacienteService
             ->with(['aptitud', 'activeDeferral'])
             ->withExists('observaciones')
             ->when(filled($filters['search'] ?? null), function ($query) use ($filters) {
-                $term = '%'.trim((string) $filters['search']).'%';
+                $term = '%'.Paciente::normalizarBusqueda((string) $filters['search']).'%';
 
-                $query->where(function ($query) use ($term) {
-                    $query->where('dni', 'like', $term)
-                        ->orWhere('nombre', 'like', $term)
-                        ->orWhere('apellido', 'like', $term);
-                });
+                $query->where('busqueda', 'like', $term);
             })
             ->orderBy('apellido')
             ->orderBy('nombre')

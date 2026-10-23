@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +24,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // A disabled staff member's existing tokens stop working immediately.
+        Sanctum::authenticateAccessTokensUsing(
+            fn ($token, bool $isValid) => $isValid && ($token->tokenable?->activo ?? false),
+        );
+
         // Staff credentials are short (2 initials + 4 digits); lock attempts per username and IP.
         RateLimiter::for('login', function (Request $request) {
             // Runs before validation: a non-string username must not crash the limiter.

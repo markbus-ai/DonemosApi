@@ -18,7 +18,7 @@ class Usuario extends Authenticatable
 
     protected $table = 'usuarios';
 
-    protected $fillable = ['username', 'password_hash', 'rol_id', 'sede_id', 'zona_id'];
+    protected $fillable = ['username', 'password_hash', 'rol_id', 'sede_id', 'zona_id', 'activo'];
 
     protected $hidden = ['password_hash'];
 
@@ -28,6 +28,7 @@ class Usuario extends Authenticatable
             'rol_id' => 'integer',
             'sede_id' => 'integer',
             'zona_id' => 'integer',
+            'activo' => 'boolean',
         ];
     }
 

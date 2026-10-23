@@ -18,7 +18,7 @@ class AuthController
         $usuario = Usuario::where('username', $credentials['username'])->first();
 
         // Uniform rejection body: never reveal whether the username exists.
-        if (! $usuario || ! Hash::check($credentials['password'], $usuario->getAuthPassword())) {
+        if (! $usuario || ! $usuario->activo || ! Hash::check($credentials['password'], $usuario->getAuthPassword())) {
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
 

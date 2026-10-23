@@ -15,7 +15,14 @@ class UsuarioSeeder extends Seeder
     public function run(): void
     {
         $username = env('SEED_STAFF_USERNAME', 'AD');
-        $password = env('SEED_STAFF_PASSWORD', '1234');
+        $password = env('SEED_STAFF_PASSWORD');
+
+        if ($password === null || $password === '') {
+            if (app()->isProduction()) {
+                throw new \RuntimeException('Set SEED_STAFF_PASSWORD: default passwords are never seeded in production.');
+            }
+            $password = '1234';
+        }
         $rolNombre = env('SEED_STAFF_ROLE', 'staff');
 
         $rol = Rol::firstOrCreate(['nombre' => $rolNombre]);

@@ -50,6 +50,41 @@ class TurnoService
         // pinned into the payload so the row and the sum agree on the site.
         $sedeId = $this->resolveSedeId($data);
 
+        try {
+            return DB::transaction(function () use ($data, $sedeId) {
+                $this->lockSede($sedeId);
+
+                return $this->book($data, $sedeId);
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Concurrent booking of the same slot lost the race.
+            return $this->horarioOcupado();
+        }
+    }
+
+    /**
+     * Serialise bookings per sede so two requests cannot both pass the
+     * capacity check. SQLite ignores FOR UPDATE, so a no-op write takes the
+     * database write lock instead (others wait up to busy_timeout).
+     */
+    private function lockSede(int $sedeId): void
+    {
+        if (DB::getDriverName() === 'sqlite') {
+            DB::table('sedes')->where('id', $sedeId)->update(['updated_at' => DB::raw('updated_at')]);
+
+            return;
+        }
+
+        Sede::whereKey($sedeId)->lockForUpdate()->first();
+    }
+
+    /**
+     * Capacity, slot and rule checks plus the insert; runs under lockSede().
+     *
+     * @return Turno|array{warning: bool, code: string, message: string, warnings?: array}
+     */
+    private function book(array $data, int $sedeId): Turno|array
+    {
         // Capacity is a blocking hard limit: it preempts the warnings path so
         // `forzar` can never bypass it. Over-limit returns the same 409 envelope
         // the Controller already maps.
@@ -84,12 +119,7 @@ class TurnoService
             ];
         }
 
-        try {
-            return $this->persist($data, $warnings, $sedeId);
-        } catch (UniqueConstraintViolationException) {
-            // Concurrent booking of the same slot lost the race.
-            return $this->horarioOcupado();
-        }
+        return $this->persist($data, $warnings, $sedeId);
     }
 
     private function persist(array $data, array $warnings, int $sedeId): Turno
@@ -187,7 +217,7 @@ class TurnoService
 
     /**
      * Resolve the turno's sede: explicit payload, then the operator's home sede,
-     * then the database default (Sede Central), mirroring DonacionService.
+     * then the flagged default sede, mirroring DonacionService.
      */
     private function resolveSedeId(array $data): int
     {
@@ -201,10 +231,7 @@ class TurnoService
             return (int) $staffSedeId;
         }
 
-        $defaultId = DB::table('sedes')->where('nombre', 'Sede Central')->value('id')
-            ?? DB::table('sedes')->orderBy('id')->value('id');
-
-        return (int) $defaultId;
+        return Sede::porDefecto()->id;
     }
 
     /**

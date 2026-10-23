@@ -14,10 +14,11 @@ class Sede extends Model
 
     protected $table = 'sedes';
 
-    protected $fillable = ['nombre', 'codigo_localidad', 'direccion', 'telefono', 'activa', 'zona_id'];
+    protected $fillable = ['nombre', 'codigo_localidad', 'direccion', 'telefono', 'activa', 'zona_id', 'es_default'];
 
     protected $casts = [
         'activa' => 'boolean',
+        'es_default' => 'boolean',
         'zona_id' => 'integer',
     ];
 
@@ -35,6 +36,13 @@ class Sede extends Model
     public function zona(): BelongsTo
     {
         return $this->belongsTo(Zona::class, 'zona_id');
+    }
+
+    /** Sede used when neither the payload nor the operator names one. */
+    public static function porDefecto(): self
+    {
+        return self::where('es_default', true)->orderBy('id')->first()
+            ?? self::orderBy('id')->firstOrFail();
     }
 
     public function turnos(): HasMany

@@ -240,10 +240,7 @@ class DonacionService
             return Sede::findOrFail($staffSedeId);
         }
 
-        $defaultId = DB::table('sedes')->where('nombre', 'Sede Central')->value('id')
-            ?? DB::table('sedes')->orderBy('id')->value('id');
-
-        return Sede::findOrFail($defaultId);
+        return Sede::porDefecto();
     }
 
     /**
