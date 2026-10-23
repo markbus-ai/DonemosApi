@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             TipoDonacionSeeder::class,
             UsuarioSeeder::class,
             SedeSeeder::class,
+            ZonaSeeder::class,
         ]);
 
         // Demo data is opt-in only. Default false so real deploys never receive

@@ -28,12 +28,14 @@ class ReporteResumenTest extends TestCase
 
     private function actingAsStaff(): void
     {
-        $rol = Rol::firstOrCreate(['nombre' => 'ADMIN']);
+        // Statistics are role-scoped; an admin-sede of the default sede sees every fixture.
+        $rol = Rol::firstOrCreate(['nombre' => Usuario::ROL_ADMIN_SEDE]);
 
         $staff = Usuario::create([
             'username' => 'user_'.uniqid(),
             'password_hash' => Hash::make('1234'),
             'rol_id' => $rol->id,
+            'sede_id' => $this->sede()->id,
         ]);
 
         Sanctum::actingAs($staff, ['*'], 'staff');

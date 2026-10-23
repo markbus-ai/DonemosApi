@@ -13,7 +13,10 @@ class UsuarioResource extends JsonResource
             'id' => $this->id,
             'username' => $this->username,
             'rol_id' => $this->rol_id,
+            'rol' => $this->rol?->nombre,
             'sede_id' => $this->sede_id,
+            'zona_id' => $this->zona_id,
+            'puede_ver_reportes' => $this->puedeVerReportes(),
         ];
     }
 }

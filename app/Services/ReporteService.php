@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Donacion;
+use App\Models\Sede;
 use App\Models\Turno;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -11,11 +12,12 @@ use Illuminate\Support\Facades\DB;
  * Read-only aggregate dashboard for the desktop app. Every metric is a grouped
  * aggregate (no per-row queries). The optional `desde` / `hasta` bounds apply to
  * `donaciones.fecha` for donation metrics and to `turnos.fecha` for turnos.
+ * Every metric is restricted to the given `sede_ids` (the caller's visible sedes).
  */
 class ReporteService
 {
     /**
-     * @param  array{desde?: mixed, hasta?: mixed}  $filters
+     * @param  array{desde?: mixed, hasta?: mixed, sede_ids: array<int, int>}  $filters
      * @return array{
      *     total_donaciones: int,
      *     donaciones_descartadas: int,
@@ -41,6 +43,7 @@ class ReporteService
     private function donacionesBase(array $filters): Builder
     {
         return Donacion::query()
+            ->whereIn('donaciones.sede_id', $filters['sede_ids'])
             ->when(filled($filters['desde'] ?? null), fn (Builder $query) => $query->where('fecha', '>=', $filters['desde']))
             ->when(filled($filters['hasta'] ?? null), fn (Builder $query) => $query->where('fecha', '<=', $filters['hasta']));
     }
@@ -93,6 +96,7 @@ class ReporteService
         return DB::table('componentes_donacion')
             ->join('donaciones', 'donaciones.id', '=', 'componentes_donacion.donacion_id')
             ->join('tipos_donacion', 'tipos_donacion.id', '=', 'componentes_donacion.tipo_id')
+            ->whereIn('donaciones.sede_id', $filters['sede_ids'])
             ->when(filled($filters['desde'] ?? null), fn ($query) => $query->where('donaciones.fecha', '>=', $filters['desde']))
             ->when(filled($filters['hasta'] ?? null), fn ($query) => $query->where('donaciones.fecha', '<=', $filters['hasta']))
             ->groupBy('tipos_donacion.codigo')
@@ -111,6 +115,7 @@ class ReporteService
     private function turnosPorEstado(array $filters): array
     {
         return Turno::query()
+            ->whereIn('sede_id', $filters['sede_ids'])
             ->when(filled($filters['desde'] ?? null), fn (Builder $query) => $query->where('fecha', '>=', $filters['desde']))
             ->when(filled($filters['hasta'] ?? null), fn (Builder $query) => $query->where('fecha', '<=', $filters['hasta']))
             ->select('estado', DB::raw('count(*) as total'))
@@ -118,6 +123,22 @@ class ReporteService
             ->orderBy('estado')
             ->pluck('total', 'estado')
             ->map(fn ($total) => (int) $total)
+            ->all();
+    }
+
+    /**
+     * Sedes offered by the statistics picker, ordered by name.
+     *
+     * @param  array<int, int>  $sedeIds
+     * @return array<int, array{id: int, nombre: string, zona: string|null}>
+     */
+    public function sedes(array $sedeIds): array
+    {
+        return Sede::with('zona')
+            ->whereIn('id', $sedeIds)
+            ->orderBy('nombre')
+            ->get()
+            ->map(fn (Sede $sede) => ['id' => $sede->id, 'nombre' => $sede->nombre, 'zona' => $sede->zona?->nombre])
             ->all();
     }
 }
