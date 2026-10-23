@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Autoexclusion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * A recorded self-exclusion. Intentionally carries no patient identity.
+ *
+ * @mixin Autoexclusion
  */
 class AutoexclusionResource extends JsonResource
 {

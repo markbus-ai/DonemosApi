@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Paciente;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -9,6 +10,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * Safe patient payload for list/read endpoints. Clinical data (restricciones
  * history, donaciones, observaciones) is intentionally excluded; only the
  * aptitud label and whether an active deferral exists are exposed.
+ *
+ * @mixin Paciente
  */
 class PacienteResource extends JsonResource
 {

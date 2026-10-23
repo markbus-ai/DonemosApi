@@ -1,0 +1,313 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:vigente\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/HabilitacionPlaquetaController.php
+
+		-
+			message: '#^Parameter \#1 \$restriccion of method App\\Services\\RestriccionService\:\:close\(\) expects App\\Models\\Restriccion, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/RestriccionController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$apellido\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$codigo\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$descartado\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$dni\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$motivo\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$motivo_descarte\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$nombre\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$peso\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tipoDonacion\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vencimiento\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Resources/DonacionResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/PacienteResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tipo\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/PacienteResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$apellido\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/TurnoResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$codigo\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/TurnoResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$dni\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/TurnoResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Resources/TurnoResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$nombre\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Resources/TurnoResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$nombre\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Resources/UsuarioResource.php
+
+		-
+			message: '#^Parameter \#1 \$key of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:every\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model\|string, Closure\(App\\Models\\ComponenteDonacion\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/Donacion.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$nombre\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Usuario.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>activo" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Providers/AppServiceProvider.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$duracion_minutos\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Rules/CapacidadRules.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>duracion_minutos" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Rules/CapacidadRules.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$codigo\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Rules/DonationRules.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tipo\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Rules/DonationRules.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, message\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Rules/TurnoRules.php
+
+		-
+			message: '#^Offset ''warnings'' on array\{allowed\: bool, warnings\: array\<int, array\{code\: string, message\: string\}\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Rules/TurnoRules.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:vigente\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Services/AptitudService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:vigente\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/HabilitacionPlaquetaService.php
+
+		-
+			message: '#^Method App\\Services\\HabilitacionPlaquetaService\:\:create\(\) should return App\\Models\\HabilitacionPlaqueta but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/HabilitacionPlaquetaService.php
+
+		-
+			message: '#^Method App\\Services\\ObservacionService\:\:create\(\) should return App\\Models\\Observacion but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/ObservacionService.php
+
+		-
+			message: '#^Method App\\Services\\ObservacionService\:\:latestFor\(\) should return App\\Models\\Observacion but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/ObservacionService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$apellido\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/RecordatorioService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$nombre\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/RecordatorioService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$paciente\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/RecordatorioService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>apellido" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/RecordatorioService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>nombre" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/RecordatorioService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$nombre\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ReporteService.php
+
+		-
+			message: '#^Default value of the parameter \#1 \$filters \(array\{\}\) of method App\\Services\\ReporteService\:\:resumen\(\) is incompatible with type array\{desde\?\: mixed, hasta\?\: mixed, sede_ids\: array\<int, int\>\}\.$#'
+			identifier: parameter.defaultValue
+			count: 1
+			path: app/Services/ReporteService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Sede\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/ReporteService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:vigente\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/RestriccionService.php
+
+		-
+			message: '#^Method App\\Services\\RestriccionService\:\:create\(\) should return App\\Models\\Restriccion but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/RestriccionService.php
+
+		-
+			message: '#^Offset ''warnings'' on array\{allowed\: bool, warnings\: array\<int, array\{code\: string, message\: string\}\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/TurnoService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Sede\:\:\$codigo_localidad\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/NumeroDonacion.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: database/factories/UsuarioFactory.php
+
+		-
+			message: '#^Called ''env'' outside of the config directory which returns null when the config is cached, use ''config''\.$#'
+			identifier: larastan.noEnvCallsOutsideOfConfig
+			count: 1
+			path: database/seeders/DatabaseSeeder.php
+
+		-
+			message: '#^Called ''env'' outside of the config directory which returns null when the config is cached, use ''config''\.$#'
+			identifier: larastan.noEnvCallsOutsideOfConfig
+			count: 3
+			path: database/seeders/UsuarioSeeder.php
+
+		-
+			message: '#^Called ''env'' outside of the config directory which returns null when the config is cached, use ''config''\.$#'
+			identifier: larastan.noEnvCallsOutsideOfConfig
+			count: 3
+			path: database/seeders/ZonaSeeder.php

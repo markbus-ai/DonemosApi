@@ -8,7 +8,46 @@ on:
 
 jobs:
   tests:
-    name: Tests
+    name: Tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # composer.lock pins Symfony 8 components, which need PHP >= 8.4.1.
+        php: ['8.4', '8.5']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: bcmath, ctype, curl, dom, fileinfo, mbstring, openssl, pdo_sqlite, sqlite3, tokenizer, xml
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ runner.os }}-php${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-php${{ matrix.php }}-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run test suite
+        run: php artisan test
+
+  quality:
+    name: Lint and static analysis
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,17 +65,25 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.composer/cache/files
-          key: composer-${{ runner.os }}-php-${{ hashFiles('composer.lock') }}
+          key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.lock') }}
           restore-keys: |
-            composer-${{ runner.os }}-php-
+            composer-${{ runner.os }}-php8.4-
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
+      - name: Pint
+        run: composer lint
 
-      - name: Run test suite
-        run: php artisan test
+      - name: PHPStan (Larastan)
+        run: composer analyse
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Ruff (scripts/)
+        run: |
+          pip install ruff
+          ruff check scripts

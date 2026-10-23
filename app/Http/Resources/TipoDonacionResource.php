@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources;
 
+use App\Models\TipoDonacion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Read-only donation-type catalog row for mobile form building.
+ *
+ * @mixin TipoDonacion
  */
 class TipoDonacionResource extends JsonResource
 {

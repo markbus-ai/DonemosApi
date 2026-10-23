@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Donacion;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,6 +11,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * tipo, componentes (with their tipo) and autoexclusion relations so clients
  * never do N+1 lookups. `presion_arterial` and `descartada` come from the
  * model accessors and rely on the relations being eager-loaded.
+ *
+ * @mixin Donacion
  */
 class DonacionResource extends JsonResource
 {

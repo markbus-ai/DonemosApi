@@ -1,0 +1,7 @@
+# Lint config for the Python helpers in scripts/ (WhatsPlay bridge).
+target-version = "py311"
+line-length = 120
+include = ["scripts/**/*.py"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]
