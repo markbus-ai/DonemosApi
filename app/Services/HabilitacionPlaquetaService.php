@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\HabilitacionPlaqueta;
 use App\Models\Paciente;
 use App\Rules\PlateletEnableRules;
+use App\Support\Hoy;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class HabilitacionPlaquetaService
     public function create(Paciente $paciente, array $data): HabilitacionPlaqueta
     {
         return DB::transaction(function () use ($paciente, $data) {
-            $desde = Carbon::parse($data['desde'] ?? now())->startOfDay()->toDateString();
+            $desde = Carbon::parse($data['desde'] ?? Hoy::fecha())->startOfDay()->toDateString();
 
             $prior = $paciente->habilitacionesPlaquetas()
                 ->vigente($desde)
@@ -62,6 +63,6 @@ class HabilitacionPlaquetaService
      */
     public function close(HabilitacionPlaqueta $habilitacion): void
     {
-        $habilitacion->update(['hasta' => now()->toDateString()]);
+        $habilitacion->update(['hasta' => Hoy::fecha()]);
     }
 }

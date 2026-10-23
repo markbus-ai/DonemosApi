@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Jobs\EnviarRecordatorioWhatsApp;
 use App\Models\RecordatorioTurno;
 use App\Models\Turno;
+use App\Support\Hoy;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -29,7 +30,7 @@ class RecordatorioService
      */
     public function create(Turno $turno): RecordatorioTurno
     {
-        if ($turno->estado !== 'PENDIENTE' || $turno->fecha->toDateString() < now(config('app.business_timezone'))->toDateString()) {
+        if ($turno->estado !== 'PENDIENTE' || $turno->fecha->toDateString() < Hoy::fecha()) {
             throw ValidationException::withMessages([
                 'turno' => 'Solo se envían recordatorios de turnos pendientes y futuros.',
             ]);

@@ -7,8 +7,8 @@ use App\Models\Paciente;
 use App\Models\Sede;
 use App\Models\TipoDonacion;
 use App\Models\Turno;
+use App\Support\Hoy;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Carbon;
 
 /**
  * Dev/demo seed: makes a fresh install look alive on first login.
@@ -106,7 +106,7 @@ class DemoSeeder extends Seeder
         // Today first, then the next few days, so first login sees same-day turnos.
         // Local calendar day: seeding after 21:00 in Argentina must not shift
         // the agenda to tomorrow (UTC is already the next day).
-        $hoy = Carbon::parse(now(config('app.business_timezone'))->toDateString());
+        $hoy = Hoy::carbon();
         $dias = [
             $hoy,
             $hoy->copy()->addDay(),

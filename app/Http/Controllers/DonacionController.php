@@ -17,8 +17,8 @@ class DonacionController
     {
         $request->validate([
             'paciente_id' => ['nullable', 'integer'],
-            'desde' => ['nullable', 'date'],
-            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'desde' => ['nullable', 'date_format:Y-m-d'],
+            'hasta' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:desde'],
             'search' => ['nullable', 'string', 'max:100'],
             'per_page' => ['nullable', 'integer', 'min:1'],
         ]);

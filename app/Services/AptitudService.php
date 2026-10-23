@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Aptitud;
 use App\Models\Paciente;
 use App\Models\Restriccion;
+use App\Support\Hoy;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AptitudService
@@ -13,7 +15,7 @@ class AptitudService
     {
         return DB::transaction(function () use ($paciente, $data) {
             $aptitud = Aptitud::where('tipo', $data['tipo'])->firstOrFail();
-            $hoy = now()->toDateString();
+            $hoy = Hoy::fecha();
 
             if ($data['tipo'] === 'APTO') {
                 $paciente->observaciones()->delete();
@@ -21,6 +23,10 @@ class AptitudService
             } elseif ($data['tipo'] === 'APTO_OBSERVACION') {
                 $this->closeActiveDeferrals($paciente, $hoy);
             } elseif ($data['tipo'] === 'NO_APTO') {
+                RestriccionService::assertNotBeforeActive(
+                    $paciente->restricciones()->vigente($hoy)->get(),
+                    Carbon::parse($data['desde'])->toDateString(),
+                );
                 $paciente->observaciones()->delete();
                 $this->closeActiveDeferrals($paciente, $data['desde']);
             }
@@ -59,7 +65,7 @@ class AptitudService
     private function closeActiveDeferrals(Paciente $paciente, string $hasta): void
     {
         $paciente->restricciones()
-            ->vigente(now()->toDateString())
+            ->vigente(Hoy::fecha())
             ->get()
             ->each(fn (Restriccion $restriccion) => $restriccion->update([
                 'hasta' => $hasta,

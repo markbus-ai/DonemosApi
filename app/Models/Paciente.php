@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Hoy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -60,7 +61,7 @@ class Paciente extends Model
     public function activeDeferral(): HasOne
     {
         return $this->hasOne(Restriccion::class, 'paciente_id')
-            ->vigente(now()->toDateString())
+            ->vigente(Hoy::fecha())
             ->latest('desde');
     }
 

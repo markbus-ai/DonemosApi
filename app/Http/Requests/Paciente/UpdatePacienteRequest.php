@@ -16,11 +16,11 @@ class UpdatePacienteRequest extends FormRequest
         return [
             'nombre' => ['sometimes', 'string', 'max:100'],
             'apellido' => ['sometimes', 'string', 'max:100'],
-            'telefono' => ['sometimes', 'string', 'max:20'],
+            'telefono' => ['sometimes', 'string', 'max:20', 'regex:/^\+?[0-9 ()-]{6,20}$/'],
             'sexo' => ['sometimes', 'nullable', 'string', 'in:M,F'],
             'altura' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:250'],
             // Manual cycle counters; staff sets or resets them freely.
-            'ciclo_actual' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'ciclo_actual' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000'],
             'serie_actual' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:'.config('ciclo_donacion.series_por_ciclo')],
             'donacion_actual' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:'.config('ciclo_donacion.donaciones_por_serie')],
         ];

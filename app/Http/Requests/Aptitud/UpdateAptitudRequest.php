@@ -24,10 +24,10 @@ class UpdateAptitudRequest extends FormRequest
             ],
             'desde' => [
                 'nullable',
-                'date',
+                'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2099-12-31',
                 Rule::requiredIf(fn () => in_array($this->input('tipo'), ['APTO_OBSERVACION', 'NO_APTO'])),
             ],
-            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'hasta' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2099-12-31', 'after_or_equal:desde', 'prohibited_if:permanente,true'],
             'permanente' => ['sometimes', 'boolean'],
         ];
     }

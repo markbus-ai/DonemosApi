@@ -13,6 +13,7 @@ use App\Rules\ClinicalSignRules;
 use App\Rules\ComponentRules;
 use App\Rules\DonationRules;
 use App\Support\ForcedAuthor;
+use App\Support\Hoy;
 use App\Support\NumeroDonacion;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
@@ -39,7 +40,7 @@ class DonacionService
     {
         $paciente = Paciente::findOrFail($data['paciente_id']);
         $tipo = TipoDonacion::findOrFail($data['tipo_id']);
-        $fecha = $data['fecha'] ?? now(config('app.business_timezone'))->toDateString();
+        $fecha = $data['fecha'] ?? Hoy::fecha();
 
         // Component-shape errors (empty / non-catalog / over-limit) are 422 and
         // preempt domain warnings, so validate before DonationRules runs.

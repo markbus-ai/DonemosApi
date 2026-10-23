@@ -18,8 +18,8 @@ class ReporteController
 
         $request->validate([
             'sede_id' => ['nullable', 'integer', 'min:1'],
-            'desde' => ['nullable', 'date'],
-            'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'desde' => ['nullable', 'date_format:Y-m-d'],
+            'hasta' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:desde'],
         ]);
 
         // An explicit sede narrows the scope and must be one the caller may see.

@@ -5,6 +5,7 @@ namespace App\Rules;
 use App\Models\Paciente;
 use App\Models\TipoDonacion;
 use App\Models\Turno;
+use App\Support\Hoy;
 use Carbon\Carbon;
 
 /**
@@ -59,7 +60,7 @@ class TurnoRules
         // -------------------------------------------------
         $turnosPendientes = Turno::where('paciente_id', $pacienteId)
             ->where('estado', 'PENDIENTE')
-            ->where('fecha', '>=', Carbon::today()->toDateString())
+            ->where('fecha', '>=', Hoy::fecha())
             ->get();
 
         if ($turnosPendientes->isNotEmpty()) {

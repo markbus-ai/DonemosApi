@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\HabilitacionPlaqueta\StoreHabilitacionPlaquetaRequest;
 use App\Models\Paciente;
 use App\Services\HabilitacionPlaquetaService;
+use App\Support\Hoy;
 use Illuminate\Http\JsonResponse;
 
 class HabilitacionPlaquetaController
@@ -34,7 +35,7 @@ class HabilitacionPlaquetaController
         $paciente = Paciente::where('dni', $dni)->firstOrFail();
 
         $habilitacion = $paciente->habilitacionesPlaquetas()
-            ->vigente(now()->toDateString())
+            ->vigente(Hoy::fecha())
             ->firstOrFail();
 
         $this->habilitacionPlaquetaService->close($habilitacion);

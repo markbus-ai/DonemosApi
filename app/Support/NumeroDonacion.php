@@ -48,6 +48,18 @@ final class NumeroDonacion
             ]);
         }
 
+        // The code fills exactly LOCALITY_PAD digits and must identify one
+        // sede once padded ("1" and "001" would mint the same numbers).
+        $padded = self::pad((string) $codigo, self::LOCALITY_PAD);
+        $colision = Sede::where('id', '!=', $sede->id)->whereNotNull('codigo_localidad')->pluck('codigo_localidad')
+            ->contains(fn ($otro) => self::pad((string) $otro, self::LOCALITY_PAD) === $padded);
+
+        if (! preg_match('/^\d{1,'.self::LOCALITY_PAD.'}$/', (string) $codigo) || $colision) {
+            throw ValidationException::withMessages([
+                'sede_id' => 'El código de localidad de la sede es inválido o está repetido; revisá la configuración de sedes.',
+            ]);
+        }
+
         DB::table('secuencias_donacion')->insertOrIgnore([
             'sede_id' => $sede->id,
             'anio' => $anio,
@@ -65,6 +77,12 @@ final class NumeroDonacion
             ->where('sede_id', $sede->id)
             ->where('anio', $anio)
             ->value('ultimo_numero');
+
+        if ($secuencia >= 10 ** self::SEQ_PAD) {
+            throw ValidationException::withMessages([
+                'sede_id' => 'Se agotó la numeración de donaciones de la sede para este año.',
+            ]);
+        }
 
         return self::format($anio, (string) $codigo, $secuencia);
     }

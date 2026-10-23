@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Turno;
 
+use App\Support\Hoy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,7 @@ class StoreTurnoRequest extends FormRequest
 
     public function rules(): array
     {
-        $hoy = now(config('app.business_timezone'));
+        $hoy = Hoy::carbon();
 
         return [
             'paciente_id' => ['required', 'integer', 'exists:pacientes,id'],

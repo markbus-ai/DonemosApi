@@ -109,7 +109,8 @@ class TurnoService
 
             // Si había violación y el personal forzó, registrar autorización
             if (!empty($warnings) && !empty($data['forzar'])) {
-                $motivo = $this->buildMotivo($warnings);
+                // Keep the operator's justification next to the rule codes.
+                $motivo = trim($this->buildMotivo($warnings).' — '.($data['motivo'] ?? ''), ' —');
 
                 // Fail-closed: only the authenticated staff operator can authorize.
                 $usuarioId = ForcedAuthor::idOrFail();
