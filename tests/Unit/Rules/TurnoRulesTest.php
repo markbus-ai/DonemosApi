@@ -54,7 +54,7 @@ class TurnoRulesTest extends TestCase
         $fecha = Carbon::tomorrow()->toDateString();
 
         $rules = $this->makeTurnoRules();
-        $result = $rules->check($paciente, $fecha, '10:00');
+        $result = $rules->check($paciente, $fecha);
 
         $this->assertTrue($result['allowed']);
         $this->assertSame([], $result['warnings']);
@@ -83,7 +83,7 @@ class TurnoRulesTest extends TestCase
         ]);
 
         $rules = $this->makeTurnoRules();
-        $result = $rules->check($paciente, $fechaTurno, '10:00', $tipoPlaquetas->id);
+        $result = $rules->check($paciente, $fechaTurno, $tipoPlaquetas->id);
 
         $this->assertFalse($result['allowed']);
         $codes = array_column($result['warnings'], 'code');
@@ -107,7 +107,7 @@ class TurnoRulesTest extends TestCase
 
         $fechaNuevoTurno = Carbon::tomorrow()->addDay()->toDateString();
         $rules = $this->makeTurnoRules();
-        $result = $rules->check($paciente, $fechaNuevoTurno, '11:00');
+        $result = $rules->check($paciente, $fechaNuevoTurno);
 
         $this->assertTrue($result['allowed'], 'Turno CANCELADO no debe generar warning');
         $this->assertSame([], $result['warnings']);
@@ -130,7 +130,7 @@ class TurnoRulesTest extends TestCase
 
         $fechaNuevoTurno = Carbon::tomorrow()->addDays(2)->toDateString();
         $rules = $this->makeTurnoRules();
-        $result = $rules->check($paciente, $fechaNuevoTurno, '11:00');
+        $result = $rules->check($paciente, $fechaNuevoTurno);
 
         $this->assertFalse($result['allowed']);
         $codes = array_column($result['warnings'], 'code');
@@ -153,7 +153,7 @@ class TurnoRulesTest extends TestCase
         ]);
 
         $rules = $this->makeTurnoRules();
-        $result = $rules->check($paciente, Carbon::tomorrow()->addDays(3)->toDateString(), '11:00');
+        $result = $rules->check($paciente, Carbon::tomorrow()->addDays(3)->toDateString());
 
         $codes = array_column($result['warnings'], 'code');
         $this->assertContains('TURNO_PENDIENTE_EXISTENTE', $codes);
@@ -176,7 +176,7 @@ class TurnoRulesTest extends TestCase
         ]);
 
         $rules = $this->makeTurnoRules();
-        $result = $rules->check($paciente, Carbon::tomorrow()->addDays(2)->toDateString(), '11:00');
+        $result = $rules->check($paciente, Carbon::tomorrow()->addDays(2)->toDateString());
 
         $this->assertTrue($result['allowed'], 'Turno ATENDIDO no debe generar warning');
         $this->assertSame([], $result['warnings']);
@@ -203,7 +203,7 @@ class TurnoRulesTest extends TestCase
 
         $rules = $this->makeTurnoRules();
         // tipoId null => evalúa con ambos tipos
-        $result = $rules->check($paciente, $fechaTurno, '10:00', null);
+        $result = $rules->check($paciente, $fechaTurno, null);
 
         $codes = array_column($result['warnings'], 'code');
         $this->assertContains('WARNING_INTERVALO', $codes);
@@ -234,7 +234,7 @@ class TurnoRulesTest extends TestCase
         ]);
 
         $rules = $this->makeTurnoRules();
-        $result = $rules->check($paciente, $fechaTurno, '10:00', null);
+        $result = $rules->check($paciente, $fechaTurno, null);
 
         $codes = array_column($result['warnings'], 'code');
         $this->assertContains('WARNING_INTERVALO', $codes);

@@ -76,7 +76,7 @@ class WhatsappTurnosTest extends TestCase
 
     public function test_many_messages_share_one_browser_start(): void
     {
-        config(['whatsapp.driver' => 'whatsplay', 'whatsapp.numero_prueba' => '5492234480402']);
+        config(['whatsapp.driver' => 'whatsplay', 'whatsapp.numero_prueba' => '5492234480402', 'whatsapp.whatsplay.dir' => '/opt/whatsapp-skill']);
         $records = collect(range(1, 3))->map(fn ($i) => $this->recordatorio(Turno::create(['paciente_id' => $this->paciente()->id, 'sede_id' => $this->sede->id, 'fecha' => '2026-10-23', 'hora' => sprintf('%02d:00', 8 + $i), 'estado' => 'PENDIENTE'])));
         Process::fake(['*' => fn () => Process::result(output: 'RESULTADOS '.json_encode($records->mapWithKeys(fn ($r) => [(string) $r->id => null])->all())."\n")]);
 
@@ -199,7 +199,7 @@ class WhatsappTurnosTest extends TestCase
 
     public function test_a_failed_send_is_recorded_with_its_reason(): void
     {
-        config(['whatsapp.driver' => 'whatsplay', 'whatsapp.numero_prueba' => '5492234480402']);
+        config(['whatsapp.driver' => 'whatsplay', 'whatsapp.numero_prueba' => '5492234480402', 'whatsapp.whatsplay.dir' => '/opt/whatsapp-skill']);
         $record = $this->recordatorio($this->turno());
         Process::fake(['*' => fn ($process) => Process::result(output: 'RESULTADOS '.json_encode([(string) $record->id => 'send_message devolvió False'])."\n")]);
 
@@ -220,5 +220,18 @@ class WhatsappTurnosTest extends TestCase
 
         $this->assertSame('FALLIDO', $record->fresh()->estado);
         $this->assertStringContainsString('Teléfono', $record->fresh()->error);
+    }
+
+    public function test_whatsplay_without_its_directory_fails_with_a_clear_reason(): void
+    {
+        config(['whatsapp.driver' => 'whatsplay', 'whatsapp.numero_prueba' => '5492234480402', 'whatsapp.whatsplay.dir' => null]);
+        Process::fake();
+        $record = $this->recordatorio($this->turno());
+
+        $this->enviarLote();
+
+        $this->assertSame('FALLIDO', $record->fresh()->estado);
+        $this->assertStringContainsString('WHATSPLAY_DIR', $record->fresh()->error);
+        Process::assertNothingRan();
     }
 }

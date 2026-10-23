@@ -6,15 +6,22 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 
 /**
- * only working session. A whole batch shares one browser cold start; the
- * bridge prints "RESULTADOS {id: null|error}".
+ * Sends through WhatsPlay: scripts/whatsplay_turnos.py runs in the skill's uv
+ * environment (WHATSPLAY_DIR) with its only working session. A whole batch
+ * shares one browser cold start; the bridge prints "RESULTADOS {id: null|error}".
  */
 class WhatsPlaySender implements WhatsappSender
 {
+    public const SIN_DIRECTORIO = 'Falta configurar WHATSPLAY_DIR (carpeta de WhatsPlay).';
+
     public function sendLote(array $mensajes): array
     {
         if ($mensajes === []) {
             return [];
+        }
+
+        if (blank(config('whatsapp.whatsplay.dir'))) {
+            return array_fill_keys(array_keys($mensajes), self::SIN_DIRECTORIO);
         }
 
         $input = tempnam(sys_get_temp_dir(), 'whatsplay_');

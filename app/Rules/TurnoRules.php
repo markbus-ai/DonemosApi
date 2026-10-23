@@ -8,19 +8,18 @@ use App\Models\Paciente;
 use App\Models\TipoDonacion;
 use App\Models\Turno;
 use App\Support\Hoy;
-use Carbon\Carbon;
 
 /**
- * TurnoRules - Objeto de dominio para evaluación de TURNOS futuros.
+ * TurnoRules - domain checks for a future turno.
  *
- * Delega la validación de intervalos/frecuencia de DONACIONES reales a DonationRules
- * (normativa Res. 536/2026: plaquetas 48h, 2/7d, 24/año; plasma 14d). NO reimplementa thresholds.
+ * Interval and frequency rules over real donations are delegated to
+ * DonationRules (Res. 536/2026: platelets 48h, 2 per 7 days, 24 per year;
+ * plasma 14 days); no threshold is re-implemented here. On top of that it
+ * flags a donor who already has a pending future turno. It only returns
+ * structured warnings; the `forzar` / authorization flow belongs to
+ * TurnoService.
  *
- * Además evalúa turnos futuros con estado PENDIENTE del paciente para evitar
- * asignación duplicada. Solo retorna warnings estructurados; el flujo forzar/autorización
- * lo maneja TurnoService.
- *
- * Retorna: ['allowed' => bool, 'warnings' => [['code','message']]]
+ * Returns: ['allowed' => bool, 'warnings' => [['code', 'message']]]
  */
 class TurnoRules
 {
@@ -29,12 +28,11 @@ class TurnoRules
     ) {}
 
     /**
-     * @param  string  $fecha  Y-m-d del turno solicitado
-     * @param  string  $hora  H:i del turno solicitado (reservado para futura validación de solapamiento)
-     * @param  int|null  $tipoId  Si se especifica, evalúa solo ese tipo; si null, evalúa PLASMA y PLAQUETAS y mergea warnings
+     * @param  string  $fecha  requested turno date (Y-m-d)
+     * @param  int|null  $tipoId  evaluate only this type; null evaluates PLASMA and PLAQUETAS and merges their warnings
      * @return array{allowed: bool, warnings: array<int, array{code: string, message: string}>}
      */
-    public function check(Paciente|int $paciente, string $fecha, string $hora, ?int $tipoId = null): array
+    public function check(Paciente|int $paciente, string $fecha, ?int $tipoId = null): array
     {
         $pacienteId = $paciente instanceof Paciente ? $paciente->id : $paciente;
 
@@ -42,14 +40,12 @@ class TurnoRules
         // Applied once here; the same code is stripped from per-tipo results below.
         $warnings = $this->donationRules->checkDeferral($pacienteId, $fecha);
 
-        // -------------------------------------------------
-        // 1) Validación de intervalos vía DonationRules (donaciones previas reales)
-        // -------------------------------------------------
+        // 1) Interval rules over the real donation history, through DonationRules.
         if ($tipoId !== null) {
             $result = $this->donationRules->check($pacienteId, $tipoId, $fecha);
             $warnings = array_merge($warnings, $this->withoutDeferral($result['warnings'] ?? []));
         } else {
-            // Sin tipo explícito: evaluar conservadoramente por codigo y mergear warnings
+            // No explicit type: evaluate conservatively by code and merge the warnings.
             $tipos = TipoDonacion::whereIn('codigo', ['PLASMA', 'PLAQUETAS'])->get();
             foreach ($tipos as $tipo) {
                 $result = $this->donationRules->check($pacienteId, $tipo->id, $fecha);
@@ -57,27 +53,19 @@ class TurnoRules
             }
         }
 
-        // -------------------------------------------------
-        // 2) Validación de turnos futuros PENDIENTE
-        // -------------------------------------------------
-        $turnosPendientes = Turno::where('paciente_id', $pacienteId)
+        // 2) Any pending future turno of the donor (attended and cancelled ones
+        // do not count). Only its existence is flagged, not a time overlap.
+        $tienePendiente = Turno::where('paciente_id', $pacienteId)
             ->where('estado', TurnoEstado::Pendiente->value)
             ->where('fecha', '>=', Hoy::fecha())
-            ->get();
+            ->exists();
 
-        if ($turnosPendientes->isNotEmpty()) {
+        if ($tienePendiente) {
             $warnings[] = [
                 'code' => WarningCode::TurnoPendienteExistente->value,
                 'message' => 'Paciente ya tiene turno pendiente',
             ];
         }
-
-        // Excluye explícitamente estados CANCELADO y ATENDIDO (no se consultan arriba).
-        // TODO: Definir si debe validar solapamiento de fecha/hora exacta vs solo existencia.
-        // No hardcodear intervalo de turnos no oficial. Si la regla de negocio requiere
-        // validar solapamiento exacto (misma fecha+hora) o ventana (ej. mismo día),
-        // implementar aquí comparando $fecha/$hora contra $turnosPendientes. Por ahora
-        // solo se advierte existencia de cualquier PENDIENTE futuro.
 
         return [
             'allowed' => empty($warnings),

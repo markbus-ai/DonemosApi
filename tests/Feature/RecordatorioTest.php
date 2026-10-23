@@ -21,9 +21,9 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * WU-3 surface: manual pre-donation reminder. Text is frozen at scheduling,
- * the record starts PENDIENTE/intento 1, the queued job is a no-op, estado
- * transitions advance, and no PII leaks into the body.
+ * Manual pre-donation reminder. Text is frozen at scheduling, the record
+ * starts PENDIENTE/intento 1, the batched delivery job is queued (faked
+ * here), estado transitions advance, and no PII leaks into the body.
  */
 class RecordatorioTest extends TestCase
 {

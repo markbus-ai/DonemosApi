@@ -15,7 +15,6 @@ use App\Support\SedeOperativa;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class TurnoService
@@ -109,31 +108,23 @@ class TurnoService
         return $this->persist($data, $warnings, $sedeId);
     }
 
+    /** Insert the turno and, when it was forced over warnings, its audit row. */
     private function persist(array $data, array $warnings, int $sedeId): Turno
     {
-        return DB::transaction(function () use ($data, $warnings, $sedeId) {
-            $payload = [
-                'paciente_id' => $data['paciente_id'],
-                'sede_id' => $sedeId,
-                'fecha' => $data['fecha'],
-                'hora' => $data['hora'],
-                'estado' => TurnoEstado::Pendiente->value,
-            ];
+        $turno = Turno::create([
+            'paciente_id' => $data['paciente_id'],
+            'sede_id' => $sedeId,
+            'tipo_id' => $data['tipo_id'] ?? null,
+            'fecha' => $data['fecha'],
+            'hora' => $data['hora'],
+            'estado' => TurnoEstado::Pendiente->value,
+        ]);
 
-            // Soporte opcional tipo_id en DB si la columna existe (compatibilidad sin migración)
-            if (isset($data['tipo_id']) && Schema::hasColumn('turnos', 'tipo_id')) {
-                $payload['tipo_id'] = $data['tipo_id'];
-            }
+        if ($warnings !== []) {
+            $this->autorizaciones->registrar((int) $data['paciente_id'], $warnings, $data['motivo'] ?? null);
+        }
 
-            $turno = Turno::create($payload);
-
-            // Si había violación y el personal forzó, registrar autorización
-            if (!empty($warnings) && !empty($data['forzar'])) {
-                $this->autorizaciones->registrar((int) $data['paciente_id'], $warnings, $data['motivo'] ?? null);
-            }
-
-            return $turno;
-        });
+        return $turno;
     }
 
     public function update(Turno $turno, array $data): Turno
@@ -182,7 +173,7 @@ class TurnoService
     }
 
     /**
-     * Resuelve warnings via TurnoRules (que delega internamente a DonationRules + turnos PENDIENTE).
+     * Rule warnings from TurnoRules (donation intervals plus pending turnos).
      *
      * @return array<int, array{code: string, message: string}>
      */
@@ -191,7 +182,6 @@ class TurnoService
         $result = $this->turnoRules->check(
             $data['paciente_id'],
             $data['fecha'],
-            $data['hora'],
             $data['tipo_id'] ?? null
         );
 

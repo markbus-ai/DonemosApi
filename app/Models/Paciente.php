@@ -23,7 +23,7 @@ class Paciente extends Model
         'telefono',
         'sexo',
         'altura',
-        // aptitud_id: default APTO se asigna en Service/Observer, no en DB
+        // aptitud_id: the APTO default is assigned by PacienteService, not the database.
         'aptitud_id',
         // Manual cycle counters; set/reset by staff, never derived from donations.
         'ciclo_actual',

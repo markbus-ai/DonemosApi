@@ -7,8 +7,7 @@
  * placeholders are `:nombre`, `:fecha`, `:hora` and `:sede`. Only donor name,
  * appointment date/time and site may appear (no DNI or clinical data).
  *
- * `delivery_enabled` gates the queued job. It is false by default so the job
- * is a provable no-op: no provider is imported and no HTTP call is made.
+ * Delivery is the batched WhatsApp job (config/whatsapp.php picks the driver).
  */
 return [
     'canal' => 'WHATSAPP',
@@ -18,5 +17,4 @@ return [
         'CONFIRMACION' => 'Hola :nombre, tu turno de donación quedó agendado para el :fecha a las :hora en :sede. ¡Gracias por donar!',
         'CANCELACION' => 'Hola :nombre, tu turno de donación del :fecha a las :hora en :sede fue cancelado. Podés pedir uno nuevo cuando quieras.',
     ],
-    'delivery_enabled' => false,
 ];

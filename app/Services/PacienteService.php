@@ -50,8 +50,8 @@ class PacienteService
 
     public function update(Paciente $paciente, array $data): Paciente
     {
-        // $data ya viene filtrado por UpdatePacienteRequest::validated()
-        // solo contiene los campos presentes (sometimes)
+        // $data comes from UpdatePacienteRequest::validated(): only the fields
+        // that were sent (`sometimes`).
         $paciente->update($data);
 
         return $paciente->fresh();

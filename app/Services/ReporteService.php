@@ -6,6 +6,7 @@ use App\Models\Donacion;
 use App\Models\Sede;
 use App\Models\Turno;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,8 +45,7 @@ class ReporteService
     {
         return Donacion::query()
             ->whereIn('donaciones.sede_id', $filters['sede_ids'])
-            ->when(filled($filters['desde'] ?? null), fn (Builder $query) => $query->where('fecha', '>=', $filters['desde']))
-            ->when(filled($filters['hasta'] ?? null), fn (Builder $query) => $query->where('fecha', '<=', $filters['hasta']));
+            ->tap(fn (Builder $query) => $this->entreFechas($query, $filters, 'fecha'));
     }
 
     /**
@@ -97,8 +97,7 @@ class ReporteService
             ->join('donaciones', 'donaciones.id', '=', 'componentes_donacion.donacion_id')
             ->join('tipos_donacion', 'tipos_donacion.id', '=', 'componentes_donacion.tipo_id')
             ->whereIn('donaciones.sede_id', $filters['sede_ids'])
-            ->when(filled($filters['desde'] ?? null), fn ($query) => $query->where('donaciones.fecha', '>=', $filters['desde']))
-            ->when(filled($filters['hasta'] ?? null), fn ($query) => $query->where('donaciones.fecha', '<=', $filters['hasta']))
+            ->tap(fn (QueryBuilder $query) => $this->entreFechas($query, $filters, 'donaciones.fecha'))
             ->groupBy('tipos_donacion.codigo')
             ->orderBy('tipos_donacion.codigo')
             ->get([
@@ -116,14 +115,23 @@ class ReporteService
     {
         return Turno::query()
             ->whereIn('sede_id', $filters['sede_ids'])
-            ->when(filled($filters['desde'] ?? null), fn (Builder $query) => $query->where('fecha', '>=', $filters['desde']))
-            ->when(filled($filters['hasta'] ?? null), fn (Builder $query) => $query->where('fecha', '<=', $filters['hasta']))
+            ->tap(fn (Builder $query) => $this->entreFechas($query, $filters, 'fecha'))
             ->select('estado', DB::raw('count(*) as total'))
             ->groupBy('estado')
             ->orderBy('estado')
             ->pluck('total', 'estado')
             ->map(fn ($total) => (int) $total)
             ->all();
+    }
+
+    /**
+     * Apply the optional inclusive `desde` / `hasta` bounds to a date column.
+     */
+    private function entreFechas(Builder|QueryBuilder $query, array $filters, string $column): void
+    {
+        $query
+            ->when(filled($filters['desde'] ?? null), fn ($query) => $query->where($column, '>=', $filters['desde']))
+            ->when(filled($filters['hasta'] ?? null), fn ($query) => $query->where($column, '<=', $filters['hasta']));
     }
 
     /**

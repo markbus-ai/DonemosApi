@@ -6,7 +6,6 @@ use App\Enums\WarningCode;
 use App\Enums\TurnoEstado;
 use App\Models\TipoDonacion;
 use App\Models\Turno;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * CapacidadRules - duration-sum capacity for one sede+date.
@@ -26,8 +25,7 @@ class CapacidadRules
     private int $duracionMinima;
 
     /**
-     * @param  array{minutos_por_dia?: int, duracion_minima?: int}|null  $config
-     *                                                                           Explicit config wins; otherwise read from config('agenda_capacidad').
+     * @param  array{minutos_por_dia?: int, duracion_minima?: int}|null  $config  explicit config wins; otherwise config('agenda_capacidad')
      */
     public function __construct(?array $config = null)
     {
@@ -64,11 +62,7 @@ class CapacidadRules
      */
     public function candidateMinutes(?int $tipoId): int
     {
-        $duracion = null;
-
-        if ($tipoId !== null && $this->hasTipoIdColumn()) {
-            $duracion = TipoDonacion::whereKey($tipoId)->value('duracion_minutos');
-        }
+        $duracion = $tipoId === null ? null : TipoDonacion::whereKey($tipoId)->value('duracion_minutos');
 
         return max((int) ($duracion ?? 0), $this->duracionMinima);
     }
@@ -85,18 +79,11 @@ class CapacidadRules
             ->where('fecha', $fecha)
             // A cancelled turno frees its minutes.
             ->where('estado', '!=', TurnoEstado::Cancelado->value)
-            ->when($this->hasTipoIdColumn(), fn ($q) => $q->with('tipoDonacion'))
+            ->with('tipoDonacion')
             ->get();
 
-        return $turnos->sum(function (Turno $turno): int {
-            $duracion = $this->hasTipoIdColumn() ? $turno->tipoDonacion?->duracion_minutos : null;
-
-            return max((int) ($duracion ?? 0), $this->duracionMinima);
-        });
-    }
-
-    private function hasTipoIdColumn(): bool
-    {
-        return Schema::hasColumn('turnos', 'tipo_id');
+        return $turnos->sum(
+            fn (Turno $turno): int => max((int) ($turno->tipoDonacion?->duracion_minutos ?? 0), $this->duracionMinima)
+        );
     }
 }

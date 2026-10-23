@@ -128,7 +128,7 @@ class DeferralBlockingTest extends TestCase
         $this->activarDiferimiento($paciente);
 
         $rules = new TurnoRules(new DonationRules);
-        $result = $rules->check($paciente, Carbon::tomorrow()->toDateString(), '10:00', null);
+        $result = $rules->check($paciente, Carbon::tomorrow()->toDateString(), null);
 
         $this->assertFalse($result['allowed']);
         $this->assertContains('BLOQUEO_DIFERIMIENTO', $this->codes($result));
@@ -141,7 +141,7 @@ class DeferralBlockingTest extends TestCase
         $tipo = $this->tipo('PLAQUETAS');
 
         $rules = new TurnoRules(new DonationRules);
-        $result = $rules->check($paciente, Carbon::tomorrow()->toDateString(), '10:00', $tipo->id);
+        $result = $rules->check($paciente, Carbon::tomorrow()->toDateString(), $tipo->id);
 
         $deferralCodes = array_filter($this->codes($result), fn ($code) => $code === 'BLOQUEO_DIFERIMIENTO');
         $this->assertCount(1, $deferralCodes);

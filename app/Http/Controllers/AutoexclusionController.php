@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Donacion\StoreAutoexclusionRequest;
+use App\Http\Resources\AutoexclusionResource;
 use App\Models\Donacion;
 use App\Services\DonacionService;
 use Illuminate\Http\JsonResponse;
@@ -21,11 +22,6 @@ class AutoexclusionController
     {
         $autoexclusion = $this->donacionService->marcarAutoexclusion($donacion, $request->validated());
 
-        return response()->json([
-            'id' => $autoexclusion->id,
-            'donacion_id' => $autoexclusion->donacion_id,
-            'motivo' => $autoexclusion->motivo,
-            'created_by' => $autoexclusion->created_by,
-        ], 201);
+        return response()->json(new AutoexclusionResource($autoexclusion), 201);
     }
 }

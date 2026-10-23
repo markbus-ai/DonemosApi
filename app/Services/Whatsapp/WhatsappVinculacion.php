@@ -57,12 +57,16 @@ class WhatsappVinculacion
         File::ensureDirectoryExists($this->dir(), 0700);
         File::put($this->dir().'/estado.json', json_encode(['estado' => 'iniciando', 'qr' => null, 'detalle' => null, 'actualizado' => time()]));
 
+        $dir = config('whatsapp.whatsplay.dir');
+
+        if (blank($dir)) {
+            return $this->fallar(WhatsPlaySender::SIN_DIRECTORIO);
+        }
+
         $command = implode(' ', array_map('escapeshellarg', WhatsPlaySender::command('vincular', [
             '--estado-dir', $this->dir(),
             '--timeout', (string) config('whatsapp.vinculacion_timeout'),
         ])));
-
-        $dir = config('whatsapp.whatsplay.dir');
 
         if (! is_dir($dir)) {
             return $this->fallar("No se encontró WhatsPlay en {$dir}; configure WHATSPLAY_DIR.");

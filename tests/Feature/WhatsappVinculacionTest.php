@@ -159,4 +159,18 @@ class WhatsappVinculacionTest extends TestCase
         Process::assertNothingRan();
         $otro->release();
     }
+
+    public function test_linking_without_the_whatsplay_directory_reports_it(): void
+    {
+        $this->actingAsRol(Usuario::ROL_ADMIN_ZONA);
+        config(['whatsapp.whatsplay.dir' => null]);
+        Process::fake();
+
+        $this->postJson('/api/whatsapp/vincular')
+            ->assertStatus(202)
+            ->assertJsonPath('estado', 'error')
+            ->assertJsonPath('detalle', 'Falta configurar WHATSPLAY_DIR (carpeta de WhatsPlay).');
+
+        Process::assertNothingRan();
+    }
 }

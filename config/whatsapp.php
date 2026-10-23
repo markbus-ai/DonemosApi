@@ -8,7 +8,9 @@
  *   log and the row is marked ENVIADO. Safe for demos and tests.
  * - `whatsplay`: sends through WhatsPlay (whatsplay-automation skill) via
  *   scripts/whatsplay_turnos.py, with the skill's uv environment and the only
- *   working session in `whatsplay.dir`/whatsapp_session.
+ *   working session in `whatsplay.dir`/whatsapp_session. WHATSPLAY_DIR is
+ *   required for this driver (the skill checkout, e.g. /opt/whatsapp-skill);
+ *   without it nothing is sent and the messages fail with a clear reason.
  *
  * `numero_prueba`: outside production every message is redirected to this
  * number; without it, the whatsplay driver refuses to send. Demo phones are
@@ -20,8 +22,7 @@ return [
     'numero_prueba' => env('WHATSAPP_NUMERO_PRUEBA'),
 
     'whatsplay' => [
-        // HOME is not always exported to PHP (e.g. under `artisan serve`).
-        'dir' => env('WHATSPLAY_DIR') ?: (getenv('HOME') ?: (function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['dir'] : '')).'/proyectos/personal/whatsapp-skill',
+        'dir' => env('WHATSPLAY_DIR'),
         // WhatsApp Web start-up plus the server tick can take a while.
         'timeout' => (int) env('WHATSPLAY_TIMEOUT', 180),
     ],

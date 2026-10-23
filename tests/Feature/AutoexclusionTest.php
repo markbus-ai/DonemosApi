@@ -108,6 +108,21 @@ class AutoexclusionTest extends TestCase
         $this->assertSame('Solicitud del donante', $donacion->fresh()->autoexclusion->motivo);
     }
 
+    public function test_response_body_is_exactly_id_donacion_motivo_and_author(): void
+    {
+        $donacion = $this->donacion(['numero_donacion' => '2026AAA000002']);
+
+        $response = $this->postJson('/api/donaciones/2026AAA000002/autoexclusion', ['motivo' => 'Solicitud del donante'])
+            ->assertCreated();
+
+        $this->assertSame(json_encode([
+            'id' => Autoexclusion::firstOrFail()->id,
+            'donacion_id' => $donacion->id,
+            'motivo' => 'Solicitud del donante',
+            'created_by' => $this->staff->id,
+        ]), $response->getContent());
+    }
+
     public function test_duplicate_self_exclusion_is_rejected_with_422(): void
     {
         $donacion = $this->donacion(['numero_donacion' => '2026AAA000002']);

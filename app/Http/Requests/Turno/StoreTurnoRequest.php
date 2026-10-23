@@ -26,7 +26,7 @@ class StoreTurnoRequest extends FormRequest
             // Optional site; the Service resolves payload → staff sede → default.
             'sede_id' => ['sometimes', 'nullable', 'integer', 'exists:sedes,id'],
 
-            // Flujo de autorización extraordinaria (dos pasos)
+            // Extraordinary authorization flow (two steps: 409, then forzar + motivo).
             'forzar' => ['sometimes', 'boolean'],
             'motivo' => ['nullable', 'string', 'max:500', Rule::requiredIf(fn () => $this->boolean('forzar'))],
         ];

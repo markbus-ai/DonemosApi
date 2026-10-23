@@ -14,7 +14,7 @@ it collides with the API port and would let anyone on the network grab the
 QR and take over the hemocentro's WhatsApp session.
 
 Run with the skill's environment, e.g.:
-  uv run --project ~/proyectos/personal/whatsapp-skill python scripts/whatsplay_turnos.py lote --input mensajes.json ...
+  uv run --project "$WHATSPLAY_DIR" python scripts/whatsplay_turnos.py lote --input mensajes.json ...
 """
 import argparse
 import asyncio
